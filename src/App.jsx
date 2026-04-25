@@ -1436,23 +1436,31 @@ function OnboardingScreen({ onComplete }) {
     setBusy(true);
     setError('');
     try {
-      let avatarUrl = null;
+      // 1. Create user first (without avatar)
+      const newUser = await createUser(name.trim(), null);
+
+      // 2. Upload avatar with real userId
       if (!skipAvatar && avatarFile) {
         try {
-          avatarUrl = await uploadAvatar(name.trim(), avatarFile);
+          const url = await uploadAvatar(newUser.id, avatarFile);
+          await updateUserAvatar(newUser.id, url);
+          newUser.avatar_url = url;
         } catch (e) {
           console.error('Avatar upload failed:', e);
         }
       }
-      const newUser = await createUser(name.trim(), avatarUrl);
-      // If a custom plan was created, save it
+
+      // 3. Save custom plan if user picked one
       if (planToSave) {
         try {
           await saveUserPlan(newUser.id, planToSave);
         } catch (e) {
           console.error('Plan save failed:', e);
+          setError('Plan konnte nicht gespeichert werden – Default wird genutzt.');
+          // Continue anyway, user is created
         }
       }
+
       onComplete(newUser);
     } catch (e) {
       console.error(e);
@@ -1499,6 +1507,8 @@ function OnboardingScreen({ onComplete }) {
       setCoachMessages([...newMessages, { role: 'assistant', content: reply }]);
       if (plan) {
         setParsedPlan(plan);
+        // Auto-forward to review after a short delay so user sees the message
+        setTimeout(() => setStep('plan-review'), 800);
       }
     } catch (e) {
       console.error(e);
@@ -2219,7 +2229,7 @@ function CoachOnboardingChat({ messages, input, setInput, onSend, busy, parsedPl
 
   return (
     <>
-      <div className="mb-4 flex items-center justify-between">
+      <div className="mb-3 flex items-center justify-between">
         <div>
           <div className="font-mono text-xs text-zinc-500 uppercase tracking-widest mb-1">Coach</div>
           <div className="font-display text-2xl text-zinc-100">PLAN ERSTELLEN</div>
@@ -2229,7 +2239,7 @@ function CoachOnboardingChat({ messages, input, setInput, onSend, busy, parsedPl
         </button>
       </div>
 
-      <div ref={scrollRef} className="flex-1 overflow-y-auto bg-zinc-900/40 border border-zinc-800 rounded-xl p-3 mb-3 space-y-3 max-h-[50vh]">
+      <div ref={scrollRef} className="overflow-y-auto bg-zinc-900/40 border border-zinc-800 rounded-xl p-3 mb-3 space-y-3 no-scrollbar" style={{ height: 'calc(100vh - 320px)', minHeight: '300px' }}>
         {messages.map((m, i) => (
           <div key={i} className={`flex ${m.role === 'user' ? 'justify-end' : 'justify-start'}`}>
             <div className={`max-w-[85%] rounded-2xl px-4 py-2.5 text-sm whitespace-pre-wrap ${
@@ -2426,8 +2436,8 @@ function CoachScreen({ user, currentPlan, currentSchedule, onPlanSaved, showToas
 
   if (reviewOpen && proposedPlan) {
     return (
-      <div className="fixed inset-0 bg-zinc-950 z-10 overflow-y-auto safe-top">
-        <div className="px-5 pt-6 pb-24 max-w-2xl mx-auto">
+      <div className="fixed top-0 left-0 right-0 bottom-16 bg-zinc-950 z-10 overflow-y-auto safe-top">
+        <div className="px-5 pt-6 pb-8 max-w-2xl mx-auto">
           <PlanReview
             plan={proposedPlan}
             onConfirm={acceptPlan}
@@ -2440,7 +2450,7 @@ function CoachScreen({ user, currentPlan, currentSchedule, onPlanSaved, showToas
   }
 
   return (
-    <div className="fixed inset-0 bg-zinc-950 z-10 flex flex-col safe-top">
+    <div className="fixed top-0 left-0 right-0 bottom-16 bg-zinc-950 z-10 flex flex-col safe-top no-scrollbar">
       <div className="px-5 pt-6 pb-3 flex items-start justify-between border-b border-zinc-900 flex-shrink-0">
         <div>
           <div className="font-mono text-xs text-zinc-500 uppercase tracking-widest mb-1">Dein Coach</div>
@@ -2504,8 +2514,8 @@ function CoachScreen({ user, currentPlan, currentSchedule, onPlanSaved, showToas
         </div>
       )}
 
-      {/* Input – sticky bottom, above main nav */}
-      <div className="px-4 py-3 border-t border-zinc-900 flex gap-2 flex-shrink-0 mb-16">
+      {/* Input – sticky bottom inside container */}
+      <div className="px-4 py-3 border-t border-zinc-900 flex gap-2 flex-shrink-0">
         <input
           type="text"
           value={input}
