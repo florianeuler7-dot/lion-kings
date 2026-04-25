@@ -434,7 +434,6 @@ export default function App() {
         ref={avatarInputRef}
         type="file"
         accept="image/*"
-        capture="user"
         onChange={onAvatarFileChosen}
         className="hidden"
       />
@@ -777,11 +776,7 @@ function WorkoutScreen({ workout, setWorkout, lastWeights, onFinish, onCancel, s
       <div className="pt-6 pb-4 flex items-center justify-between">
         <button onClick={onCancel} className="text-zinc-500"><X className="w-6 h-6" /></button>
         <div className="font-mono text-xs text-zinc-500">Übung {exerciseIdx + 1} / {plan.exercises.length}</div>
-        <button onClick={() => setNotesOpen(!notesOpen)}
-          className={`p-1 transition-colors ${notes ? 'text-yellow-400' : 'text-zinc-500'}`}
-          title="Notiz hinzufügen">
-          <StickyNote className="w-5 h-5" />
-        </button>
+        <div className="w-6"></div>
       </div>
 
       <div className="h-1 bg-zinc-900 rounded-full overflow-hidden mb-4">
@@ -910,10 +905,18 @@ function WorkoutScreen({ workout, setWorkout, lastWeights, onFinish, onCancel, s
           <div className="flex items-center gap-2"><Droplet className="w-4 h-4" /> Trinken nicht vergessen</div>
         </div>
 
-        <button onClick={() => setSkipConfirm(true)}
-          className="w-full mt-4 bg-zinc-900 hover:bg-zinc-800 border border-zinc-800 text-zinc-400 font-mono text-xs py-2.5 rounded-lg flex items-center justify-center gap-2">
-          <Forward className="w-3 h-3" /> Übung überspringen
-        </button>
+        <div className="grid grid-cols-2 gap-2 mt-4">
+          <button onClick={() => setNotesOpen(!notesOpen)}
+            className={`bg-zinc-900 hover:bg-zinc-800 border rounded-lg py-2.5 font-mono text-xs flex items-center justify-center gap-2 ${
+              notes ? 'border-yellow-600/50 text-yellow-400' : 'border-zinc-800 text-zinc-400'
+            }`}>
+            <StickyNote className="w-3 h-3" /> {notes ? 'Notiz bearbeiten' : 'Notiz hinzufügen'}
+          </button>
+          <button onClick={() => setSkipConfirm(true)}
+            className="bg-zinc-900 hover:bg-zinc-800 border border-zinc-800 text-zinc-400 font-mono text-xs py-2.5 rounded-lg flex items-center justify-center gap-2">
+            <Forward className="w-3 h-3" /> Übung überspringen
+          </button>
+        </div>
       </div>
     </div>
   );
@@ -1591,7 +1594,7 @@ function OnboardingScreen({ onComplete }) {
               <label className="cursor-pointer w-full bg-zinc-900 border border-zinc-800 rounded-xl py-3 px-4 flex items-center justify-center gap-2 hover:bg-zinc-800 transition-colors">
                 <Camera className="w-5 h-5 text-zinc-300" />
                 <span className="font-mono text-sm text-zinc-200">{avatarPreview ? 'Anderes Foto wählen' : 'Foto wählen'}</span>
-                <input type="file" accept="image/*" capture="user" onChange={handleAvatarPick} className="hidden" />
+                <input type="file" accept="image/*" onChange={handleAvatarPick} className="hidden" />
               </label>
             </div>
 
@@ -2070,17 +2073,6 @@ function DashboardScreen({ user }) {
                     ))}
                   </div>
                 </div>
-
-                {/* Names below reactions for mobile clarity */}
-                {Object.keys(grouped).length > 0 && (
-                  <div className="ml-12 mt-2 space-y-0.5">
-                    {Object.entries(grouped).map(([emoji, list]) => (
-                      <div key={emoji} className="font-mono text-xs text-zinc-500 truncate">
-                        <span>{emoji}</span> <span className="text-zinc-400">{list.map(r => r.users?.name || '?').join(', ')}</span>
-                      </div>
-                    ))}
-                  </div>
-                )}
               </div>
             );
           })}
@@ -2169,7 +2161,7 @@ function StepCounter({ user }) {
         <div className={`h-full transition-all ${reached ? 'bg-green-500' : 'bg-blue-400'}`} style={{ width: `${progress}%` }} />
       </div>
 
-      {/* Input + Save button */}
+      {/* Input + Save button (only shown when value differs from saved) */}
       <div className="flex gap-2 mb-3">
         <input
           type="number"
@@ -2179,20 +2171,16 @@ function StepCounter({ user }) {
           onFocus={e => e.target.select()}
           className="flex-1 bg-zinc-950 border border-zinc-800 rounded-lg px-4 py-3 text-2xl font-display text-zinc-100 focus:border-red-500 focus:outline-none"
         />
-        <button
-          onClick={save}
-          disabled={saving || !isDirty}
-          className={`px-5 rounded-lg font-mono text-sm flex items-center gap-2 transition-colors ${
-            isDirty && !saving
-              ? 'bg-green-600 hover:bg-green-700 text-white'
-              : justSaved
-                ? 'bg-green-600 text-white'
-                : 'bg-zinc-800 text-zinc-500'
-          }`}
-        >
-          <Check className="w-4 h-4" />
-          {saving ? '...' : justSaved ? 'OK' : 'Speichern'}
-        </button>
+        {isDirty && (
+          <button
+            onClick={save}
+            disabled={saving}
+            aria-label="Speichern"
+            className="bg-green-600 hover:bg-green-700 text-white rounded-lg px-4 flex items-center justify-center"
+          >
+            <Check className="w-5 h-5" />
+          </button>
+        )}
       </div>
 
       {/* Quick add buttons - save immediately, flash green on tap */}
@@ -2438,23 +2426,25 @@ function CoachScreen({ user, currentPlan, currentSchedule, onPlanSaved, showToas
 
   if (reviewOpen && proposedPlan) {
     return (
-      <div className="pt-8 pb-32">
-        <PlanReview
-          plan={proposedPlan}
-          onConfirm={acceptPlan}
-          onBack={() => setReviewOpen(false)}
-          busy={busy}
-        />
+      <div className="fixed inset-0 bg-zinc-950 z-10 overflow-y-auto safe-top">
+        <div className="px-5 pt-6 pb-24 max-w-2xl mx-auto">
+          <PlanReview
+            plan={proposedPlan}
+            onConfirm={acceptPlan}
+            onBack={() => setReviewOpen(false)}
+            busy={busy}
+          />
+        </div>
       </div>
     );
   }
 
   return (
-    <div className="pt-8 pb-32 flex flex-col h-[calc(100vh-100px)]">
-      <div className="mb-4 flex items-start justify-between">
+    <div className="fixed inset-0 bg-zinc-950 z-10 flex flex-col safe-top">
+      <div className="px-5 pt-6 pb-3 flex items-start justify-between border-b border-zinc-900 flex-shrink-0">
         <div>
           <div className="font-mono text-xs text-zinc-500 uppercase tracking-widest mb-1">Dein Coach</div>
-          <h1 className="font-display text-5xl text-zinc-100 leading-none">CLAUDE<br/><span className="text-red-500">COACH</span></h1>
+          <h1 className="font-display text-3xl text-zinc-100 leading-none">CLAUDE <span className="text-red-500">COACH</span></h1>
         </div>
         {messages.length > 0 && (
           <button onClick={clearChat} className="font-mono text-xs text-zinc-500 hover:text-zinc-300 mt-2">
@@ -2463,8 +2453,8 @@ function CoachScreen({ user, currentPlan, currentSchedule, onPlanSaved, showToas
         )}
       </div>
 
-      {/* Messages */}
-      <div ref={scrollRef} className="flex-1 overflow-y-auto bg-zinc-900/40 border border-zinc-800 rounded-xl p-3 mb-3 space-y-3">
+      {/* Messages – einzige Scroll-Zone */}
+      <div ref={scrollRef} className="flex-1 overflow-y-auto px-4 py-3 space-y-3">
         {messages.map((m, i) => (
           <div key={i} className={`flex ${m.role === 'user' ? 'justify-end' : 'justify-start'}`}>
             <div className={`max-w-[85%] rounded-2xl px-4 py-2.5 text-sm whitespace-pre-wrap ${
@@ -2485,9 +2475,9 @@ function CoachScreen({ user, currentPlan, currentSchedule, onPlanSaved, showToas
         )}
       </div>
 
-      {/* Plan ready banner */}
+      {/* Plan ready banner – sticky over input */}
       {proposedPlan && (
-        <div className="bg-emerald-950/40 border border-emerald-800/50 rounded-xl p-3 mb-3 flex items-center gap-3">
+        <div className="bg-emerald-950/60 border-t border-emerald-800/50 px-4 py-3 flex items-center gap-3 flex-shrink-0">
           <Sparkles className="w-5 h-5 text-emerald-400 flex-shrink-0" />
           <div className="flex-1 text-sm text-emerald-200">Neuer Plan vorbereitet</div>
           <button onClick={() => setReviewOpen(true)}
@@ -2497,14 +2487,14 @@ function CoachScreen({ user, currentPlan, currentSchedule, onPlanSaved, showToas
         </div>
       )}
 
-      {/* Quick prompts */}
+      {/* Quick prompts – only first time */}
       {messages.length <= 1 && (
-        <div className="mb-3 flex gap-2 overflow-x-auto pb-1">
+        <div className="px-4 pt-2 flex gap-2 overflow-x-auto pb-1 flex-shrink-0">
           {[
-            'Ist mein Plan optimal für Cut?',
-            'Mehr Volumen für Schultern',
-            'Plan für 4 Tage statt 5',
-            'Wie progressiv überlasten?',
+            'Plan optimal für Cut?',
+            'Mehr Volumen Schultern',
+            'Plan für 4 Tage',
+            'Progressiv überlasten?',
           ].map((q, i) => (
             <button key={i} onClick={() => setInput(q)}
               className="flex-shrink-0 bg-zinc-900 border border-zinc-800 hover:bg-zinc-800 rounded-full px-3 py-1.5 font-mono text-xs text-zinc-300">
@@ -2514,8 +2504,8 @@ function CoachScreen({ user, currentPlan, currentSchedule, onPlanSaved, showToas
         </div>
       )}
 
-      {/* Input */}
-      <div className="flex gap-2">
+      {/* Input – sticky bottom, above main nav */}
+      <div className="px-4 py-3 border-t border-zinc-900 flex gap-2 flex-shrink-0 mb-16">
         <input
           type="text"
           value={input}

@@ -72,7 +72,9 @@ export default async (req) => {
         model: 'claude-sonnet-4-5',
         max_tokens: 4096,
         system: buildSystemPrompt(currentPlan),
-        messages,
+        // Anthropic requires the first message to be from `user`.
+        // Filter out a leading assistant greeting if present.
+        messages: messages[0]?.role === 'assistant' ? messages.slice(1) : messages,
       }),
     });
 
