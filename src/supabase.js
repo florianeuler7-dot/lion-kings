@@ -330,42 +330,24 @@ export async function getAllStepsForDate(date = null) {
 // ===== PLANS =====
 
 export async function saveUserPlan(userId, planData) {
-  // Insert new plan record
-  const { data: planRow, error: planErr } = await supabase
-    .from('plans')
-    .insert({ user_id: userId, plan_data: planData })
-    .select()
-    .single();
-  if (planErr) throw planErr;
-
-  // Set as user's active plan
-  const { data: userRow, error: userErr } = await supabase
+  const { data, error } = await supabase
     .from('users')
-    .update({ active_plan_id: planRow.id })
+    .update({ plan_data: planData })
     .eq('id', userId)
     .select()
     .single();
-  if (userErr) throw userErr;
-
-  return { plan: planRow, user: userRow };
+  if (error) throw error;
+  return data;
 }
 
 export async function getActivePlanForUser(userId) {
-  // First get the user's active_plan_id
-  const { data: user, error: userErr } = await supabase
+  const { data, error } = await supabase
     .from('users')
-    .select('active_plan_id')
+    .select('plan_data')
     .eq('id', userId)
     .maybeSingle();
-  if (userErr || !user?.active_plan_id) return null;
-
-  const { data: plan, error: planErr } = await supabase
-    .from('plans')
-    .select('*')
-    .eq('id', user.active_plan_id)
-    .maybeSingle();
-  if (planErr) return null;
-  return plan?.plan_data || null;
+  if (error || !data?.plan_data) return null;
+  return data.plan_data;
 }
 
 // ===== AI BACKEND CALLS =====
@@ -381,11 +363,11 @@ export async function parsePlanText(text) {
   return data.plan;
 }
 
-export async function coachChat(messages, currentPlan = null) {
+export async function coachChat(messages, currentPlan = null, onboarding = false) {
   const resp = await fetch('/.netlify/functions/coach-chat', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ messages, currentPlan }),
+    body: JSON.stringify({ messages, currentPlan, onboarding }),
   });
   const data = await resp.json();
   if (!resp.ok) throw new Error(data.error || 'Coach chat failed');

@@ -285,8 +285,9 @@ export default function App() {
       session.setUser(updated);
       showToast('Profilbild aktualisiert', 'check');
     } catch (e) {
-      console.error('Avatar update error:', e);
-      showToast('Upload fehlgeschlagen', 'info');
+      const msg = e?.message || e?.details || e?.code || String(e);
+      console.error('Avatar update error:', e?.message, '| code:', e?.code, '| details:', e?.details);
+      showToast(`Upload fehlgeschlagen: ${msg}`, 'info');
     }
   };
 
@@ -297,8 +298,9 @@ export default function App() {
       showToast('Neuer Plan aktiv 🦁', 'check');
       setScreen('home');
     } catch (e) {
-      console.error('Plan save error:', e);
-      showToast('Plan konnte nicht gespeichert werden', 'info');
+      const msg = e?.message || e?.details || e?.code || String(e);
+      console.error('Plan save error:', e?.message, '| code:', e?.code, '| details:', e?.details, '| hint:', e?.hint);
+      showToast(`Fehler: ${msg}`, 'info');
     }
   };
 
@@ -487,7 +489,7 @@ export default function App() {
         <nav className="fixed bottom-0 left-0 right-0 bg-zinc-900/95 backdrop-blur border-t border-zinc-800 z-20 safe-bottom">
           <div className="max-w-2xl mx-auto flex">
             <NavBtn icon={Home} label="Heute" active={screen==='home'} onClick={() => setScreen('home')} />
-            <NavBtn icon={Users} label="Crew" active={screen==='dashboard'} onClick={() => setScreen('dashboard')} />
+            <NavBtn icon={Users} label="Löwen" active={screen==='dashboard'} onClick={() => setScreen('dashboard')} />
             <NavBtn icon={Sparkles} label="Coach" active={screen==='coach'} onClick={() => setScreen('coach')} />
             <NavBtn icon={History} label="Verlauf" active={screen==='history'} onClick={() => setScreen('history')} />
             <NavBtn icon={Calendar} label="Plan" active={screen==='plan'} onClick={() => setScreen('plan')} />
@@ -604,12 +606,12 @@ function HomeScreen({ user, onLogout, onChangeAvatar, plan: PLAN, todayPlan, tod
         </div>
       </div>
 
-      <StepCounter user={user} />
+      <GoldenRules />
 
       <div className="mb-6">
         <div className="font-mono text-xs text-zinc-500 uppercase tracking-widest mb-3">Anderes Training starten</div>
         <div className="space-y-2">
-          {['push', 'pull', 'legs', 'aesthetic'].map(k => (
+          {[...new Set(PLAN && Object.keys(PLAN).filter(k => k !== 'rest' && k !== 'cardio' && PLAN[k]?.exercises?.length > 0))].map(k => (
             <button key={k} onClick={() => onPickOther(k)} className="w-full bg-zinc-900 border border-zinc-800 rounded-xl p-4 flex items-center justify-between">
               <div className="flex items-center gap-3 text-left">
                 <div className="bg-zinc-950 rounded-lg p-2">
@@ -1503,7 +1505,7 @@ function OnboardingScreen({ onComplete }) {
     setCoachInput('');
     setBusy(true);
     try {
-      const { reply, plan } = await coachChat(newMessages);
+      const { reply, plan } = await coachChat(newMessages, null, true);
       setCoachMessages([...newMessages, { role: 'assistant', content: reply }]);
       if (plan) {
         setParsedPlan(plan);
@@ -1534,6 +1536,25 @@ function OnboardingScreen({ onComplete }) {
     setName('');
     setStep('name');
   };
+
+  if (step === 'plan-coach') {
+    return (
+      <div style={{ position: 'fixed', inset: 0, display: 'flex', flexDirection: 'column', background: '#09090b', color: '#f4f4f5' }}>
+        <div style={{ flex: 1, maxWidth: '448px', margin: '0 auto', width: '100%', padding: '0 24px', display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
+          <CoachOnboardingChat
+            messages={coachMessages}
+            input={coachInput}
+            setInput={setCoachInput}
+            onSend={handleCoachSend}
+            busy={busy}
+            parsedPlan={parsedPlan}
+            onPlanReady={() => setStep('plan-review')}
+            onBack={() => setStep('plan')}
+          />
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-zinc-950 text-zinc-100 grain relative safe-top safe-bottom flex flex-col">
@@ -1659,7 +1680,7 @@ function OnboardingScreen({ onComplete }) {
                 </div>
                 <div className="flex-1">
                   <div className="font-display text-lg text-zinc-100">EIGENEN PLAN EINGEBEN</div>
-                  <div className="font-mono text-xs text-zinc-500">Freitext einfügen, Claude strukturiert</div>
+                  <div className="font-mono text-xs text-zinc-500">Freitext einfügen, Lions Coach strukturiert</div>
                 </div>
                 <ChevronRight className="w-5 h-5 text-zinc-600" />
               </button>
@@ -1671,7 +1692,7 @@ function OnboardingScreen({ onComplete }) {
                 </div>
                 <div className="flex-1">
                   <div className="font-display text-lg text-zinc-100">VOM COACH ERSTELLEN</div>
-                  <div className="font-mono text-xs text-zinc-500">Geführter Chat mit Claude</div>
+                  <div className="font-mono text-xs text-zinc-500">Geführter Chat mit dem Lions Coach</div>
                 </div>
                 <ChevronRight className="w-5 h-5 text-zinc-600" />
               </button>
@@ -1696,7 +1717,7 @@ function OnboardingScreen({ onComplete }) {
               <div className="font-display text-3xl text-zinc-100 leading-tight mb-2">Dein Plan als Text</div>
               <div className="text-sm text-zinc-400">
                 Füge deinen Plan als Freitext ein – Übungen, Sätze, Wiederholungen.
-                Claude strukturiert ihn dann automatisch.
+                Der Lions Coach strukturiert ihn dann automatisch.
               </div>
             </div>
 
@@ -1736,18 +1757,6 @@ Di: Pull
           </>
         )}
 
-        {step === 'plan-coach' && (
-          <CoachOnboardingChat
-            messages={coachMessages}
-            input={coachInput}
-            setInput={setCoachInput}
-            onSend={handleCoachSend}
-            busy={busy}
-            parsedPlan={parsedPlan}
-            onPlanReady={() => setStep('plan-review')}
-            onBack={() => setStep('plan')}
-          />
-        )}
 
         {step === 'plan-review' && parsedPlan && (
           <PlanReview
@@ -1887,13 +1896,13 @@ function DashboardScreen({ user }) {
   };
 
   if (loading) {
-    return <div className="pt-8 text-zinc-500 font-mono text-sm">Lade Crew-Daten...</div>;
+    return <div className="pt-8 text-zinc-500 font-mono text-sm">Lade Löwen-Daten...</div>;
   }
 
   return (
     <div className="pt-8">
       <div className="mb-6">
-        <div className="font-mono text-xs text-zinc-500 uppercase tracking-widest mb-1">Die Crew</div>
+        <div className="font-mono text-xs text-zinc-500 uppercase tracking-widest mb-1">Die Löwen</div>
         <h1 className="font-display text-5xl text-zinc-100 leading-none">CREW<br/><span className="text-red-500">DASHBOARD</span></h1>
       </div>
 
@@ -2093,6 +2102,54 @@ function DashboardScreen({ user }) {
 }
 
 // ===== STEP COUNTER =====
+function GoldenRules() {
+  const todayKey = new Date().toISOString().split('T')[0];
+  const storageKey = `golden_rules_${todayKey}`;
+  const [checked, setChecked] = useState(() => {
+    try { return JSON.parse(localStorage.getItem(storageKey)) || [false, false, false]; }
+    catch { return [false, false, false]; }
+  });
+
+  const toggle = (i) => {
+    const next = [...checked];
+    next[i] = !next[i];
+    setChecked(next);
+    try { localStorage.setItem(storageKey, JSON.stringify(next)); } catch {}
+  };
+
+  const rules = [
+    { icon: '💧', label: '3L Wasser', sub: 'mind. täglich' },
+    { icon: '👟', label: '10k Schritte', sub: 'jeden Tag bewegen' },
+    { icon: '🥗', label: 'Gesund essen', sub: 'echtes Essen, wenig Zucker' },
+  ];
+
+  return (
+    <div className="mb-6">
+      <div className="font-mono text-xs text-zinc-500 uppercase tracking-widest mb-3">Goldene Regeln</div>
+      <div className="grid grid-cols-3 gap-2">
+        {rules.map((r, i) => (
+          <button
+            key={i}
+            onClick={() => toggle(i)}
+            className={`rounded-xl p-3 border flex flex-col items-center gap-1 transition-all ${
+              checked[i]
+                ? 'bg-emerald-950/60 border-emerald-700/60'
+                : 'bg-zinc-900 border-zinc-800'
+            }`}
+          >
+            <span className="text-2xl">{r.icon}</span>
+            <span className={`font-display text-sm leading-tight text-center ${checked[i] ? 'text-emerald-400' : 'text-zinc-100'}`}>
+              {r.label}
+            </span>
+            <span className="font-mono text-[10px] text-zinc-500 text-center leading-tight">{r.sub}</span>
+            {checked[i] && <span className="font-mono text-[10px] text-emerald-500">✓ erledigt</span>}
+          </button>
+        ))}
+      </div>
+    </div>
+  );
+}
+
 function StepCounter({ user }) {
   const [savedSteps, setSavedSteps] = useState(0);
   const [draft, setDraft] = useState('0');
@@ -2228,8 +2285,8 @@ function CoachOnboardingChat({ messages, input, setInput, onSend, busy, parsedPl
   }, [messages, busy]);
 
   return (
-    <>
-      <div className="mb-3 flex items-center justify-between">
+    <div style={{ flex: 1, display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
+      <div className="mb-3 flex items-center justify-between flex-shrink-0 pt-6">
         <div>
           <div className="font-mono text-xs text-zinc-500 uppercase tracking-widest mb-1">Coach</div>
           <div className="font-display text-2xl text-zinc-100">PLAN ERSTELLEN</div>
@@ -2239,7 +2296,7 @@ function CoachOnboardingChat({ messages, input, setInput, onSend, busy, parsedPl
         </button>
       </div>
 
-      <div ref={scrollRef} className="overflow-y-auto bg-zinc-900/40 border border-zinc-800 rounded-xl p-3 mb-3 space-y-3 no-scrollbar" style={{ height: 'calc(100vh - 320px)', minHeight: '300px' }}>
+      <div ref={scrollRef} className="flex-1 overflow-y-auto bg-zinc-900/40 border border-zinc-800 rounded-xl p-3 mb-3 space-y-3 no-scrollbar">
         {messages.map((m, i) => (
           <div key={i} className={`flex ${m.role === 'user' ? 'justify-end' : 'justify-start'}`}>
             <div className={`max-w-[85%] rounded-2xl px-4 py-2.5 text-sm whitespace-pre-wrap ${
@@ -2271,22 +2328,30 @@ function CoachOnboardingChat({ messages, input, setInput, onSend, busy, parsedPl
         </div>
       )}
 
-      <div className="flex gap-2">
-        <input
-          type="text"
+      <div className="flex gap-2 items-end">
+        <textarea
           value={input}
           onChange={e => setInput(e.target.value)}
-          onKeyDown={e => e.key === 'Enter' && !e.shiftKey && (e.preventDefault(), onSend())}
-          placeholder="Antwort eingeben..."
+          onKeyDown={e => {
+            if (e.key === 'Enter' && !e.shiftKey) {
+              e.preventDefault();
+              onSend();
+            }
+          }}
+          placeholder="Antwort… (Shift+Enter = Absatz)"
           disabled={busy}
+          rows={1}
+          style={{ resize: 'none', overflow: 'hidden' }}
+          onInput={e => { e.target.style.height = 'auto'; e.target.style.height = e.target.scrollHeight + 'px'; }}
           className="flex-1 bg-zinc-900 border border-zinc-800 rounded-xl px-4 py-3 text-sm text-zinc-100 focus:border-red-500 focus:outline-none"
         />
         <button onClick={onSend} disabled={busy || !input.trim()}
-          className="bg-red-600 hover:bg-red-700 disabled:bg-zinc-800 disabled:text-zinc-500 text-white font-mono text-sm px-4 rounded-xl">
+          className="bg-red-600 hover:bg-red-700 disabled:bg-zinc-800 disabled:text-zinc-500 text-white font-mono text-sm px-4 py-3 rounded-xl flex-shrink-0">
           {busy ? '...' : 'SEND'}
         </button>
       </div>
-    </>
+      <div style={{ height: '24px', flexShrink: 0 }} />
+    </div>
   );
 }
 
@@ -2453,8 +2518,8 @@ function CoachScreen({ user, currentPlan, currentSchedule, onPlanSaved, showToas
     <div className="fixed top-0 left-0 right-0 bottom-16 bg-zinc-950 z-10 flex flex-col safe-top no-scrollbar">
       <div className="px-5 pt-6 pb-3 flex items-start justify-between border-b border-zinc-900 flex-shrink-0">
         <div>
-          <div className="font-mono text-xs text-zinc-500 uppercase tracking-widest mb-1">Dein Coach</div>
-          <h1 className="font-display text-3xl text-zinc-100 leading-none">CLAUDE <span className="text-red-500">COACH</span></h1>
+          <div className="font-mono text-xs text-zinc-500 uppercase tracking-widest mb-1">Dein</div>
+          <h1 className="font-display text-3xl text-zinc-100 leading-none">LIONS <span className="text-red-500">COACH</span></h1>
         </div>
         {messages.length > 0 && (
           <button onClick={clearChat} className="font-mono text-xs text-zinc-500 hover:text-zinc-300 mt-2">

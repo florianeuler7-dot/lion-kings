@@ -29,14 +29,15 @@ REGELN:
 - Wenn du noch Infos brauchst: KEIN JSON ausgeben, nur weiterfragen
 - Wenn der User nur eine Frage stellt (z.B. "soll ich mehr Volumen machen?"), antworte ohne JSON – nur Beratung`;
 
-function buildSystemPrompt(currentPlan) {
-  if (!currentPlan) return COACH_SYSTEM_BASE;
-  return `${COACH_SYSTEM_BASE}
-
-AKTUELLER PLAN DES USERS:
-${JSON.stringify(currentPlan, null, 2)}
-
-Berücksichtige diesen Plan bei deinen Antworten. Bei Plan-Änderungen: nur die nötigen Sachen anpassen, den Rest beibehalten.`;
+function buildSystemPrompt(currentPlan, onboarding) {
+  let prompt = COACH_SYSTEM_BASE;
+  if (onboarding) {
+    prompt += `\n\nKONTEXT: Der User ist gerade im Onboarding und erstellt seinen ersten Plan. Frage gezielt nach Trainingstagen, Ziel, Erfahrung und Cardio-Präferenz – dann erstelle den Plan.`;
+  }
+  if (currentPlan) {
+    prompt += `\n\nAKTUELLER PLAN DES USERS:\n${JSON.stringify(currentPlan, null, 2)}\n\nBerücksichtige diesen Plan bei deinen Antworten. Bei Plan-Änderungen: nur die nötigen Sachen anpassen, den Rest beibehalten.`;
+  }
+  return prompt;
 }
 
 export default async (req) => {
@@ -44,7 +45,8 @@ export default async (req) => {
     return new Response('Method not allowed', { status: 405 });
   }
 
-  const apiKey = Netlify.env.get('ANTHROPIC_API_KEY');
+  const apiKey = (process.env.COACH_API_KEY || Netlify.env.get('COACH_API_KEY') || '').trim();
+  console.log('COACH_KEY prefix:', apiKey.slice(0, 14), '| len:', apiKey.length);
   if (!apiKey) {
     return new Response(JSON.stringify({ error: 'API key not configured' }), {
       status: 500,
@@ -53,7 +55,7 @@ export default async (req) => {
   }
 
   try {
-    const { messages, currentPlan } = await req.json();
+    const { messages, currentPlan, onboarding } = await req.json();
     if (!messages || !Array.isArray(messages) || messages.length === 0) {
       return new Response(JSON.stringify({ error: 'Keine Messages übergeben' }), {
         status: 400,
@@ -71,7 +73,7 @@ export default async (req) => {
       body: JSON.stringify({
         model: 'claude-sonnet-4-5',
         max_tokens: 4096,
-        system: buildSystemPrompt(currentPlan),
+        system: buildSystemPrompt(currentPlan, onboarding),
         // Anthropic requires the first message to be from `user`.
         // Filter out a leading assistant greeting if present.
         messages: messages[0]?.role === 'assistant' ? messages.slice(1) : messages,
