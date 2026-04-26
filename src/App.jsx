@@ -669,7 +669,7 @@ function HomeScreen({ user, onLogout, onChangeAvatar, plan: PLAN, todayPlan, tod
             </button>
           )}
 
-          {doneToday && (
+          {doneToday && !isRest && (
             <div className="bg-zinc-950/50 border border-white/20 text-white py-3 px-4 rounded-xl flex items-center gap-2 font-mono text-sm">
               <Check className="w-5 h-5" /> Heute schon erledigt. Gut gemacht.
             </div>
