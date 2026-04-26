@@ -59,12 +59,13 @@
       /* Nav & coach layout */
       :root { --nav-h: calc(3.75rem + env(safe-area-inset-bottom, 0px)); }
       .app-nav {
-        position: fixed; bottom: 0; left: 0; right: 0; z-index: 20;
+        position: fixed; bottom: -50px; left: 0; right: 0; z-index: 20;
         background: #18181b;
         border-top: 1px solid #27272a;
         backdrop-filter: blur(12px);
         -webkit-backdrop-filter: blur(12px);
-        padding-bottom: env(safe-area-inset-bottom, 0px);
+        /* pull nav 50px below viewport, pad back up so buttons stay visible */
+        padding-bottom: calc(50px + env(safe-area-inset-bottom, 0px));
       }
       .coach-screen {
         position: fixed; top: 0; left: 0; right: 0;
