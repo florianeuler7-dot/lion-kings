@@ -2,6 +2,41 @@ import React, { useState, useEffect, useRef } from 'react';
 import { Dumbbell, Play, Pause, SkipForward, Check, Calendar, History, Home, X, Droplet, ChevronRight, Clock, Flame, TrendingUp, Coffee, Timer, Heart, Activity, Sparkles, User, LogOut, AlertCircle, Users, Trophy, Zap, Plus, Minus, Camera, Upload, StickyNote, Forward, MessageCircle, Send } from 'lucide-react';
 import { findUserByName, getUserById, createUser, getLastWorkoutDate, getUserWorkouts, saveWorkout, rowToWorkout, computeLastWeights, getAllUsers, getActivityFeed, getAllLiveStatuses, setLiveStatus, clearLiveStatus, getReactionsForWorkouts, toggleReaction, getCommentsForWorkouts, addComment, computeUserStats, supabase, uploadAvatar, updateUserAvatar, saveUserPlan, getActivePlanForUser, parsePlanText, coachChat } from './supabase';
 
+// ===== MOTIVATION QUOTES =====
+const MOTIVATION_QUOTES = [
+  'The mind always fails first, not the body. The secret is to make your mind work for you, not against you. — Arnold',
+  'Strength does not come from winning. Your struggles develop your strengths. — Arnold',
+  'The last three or four reps is what makes the muscle grow. — Arnold',
+  'Pain is temporary. Quitting lasts forever. — Arnold',
+  'You can have results or excuses. Not both. — Arnold',
+  'Of course it\'s heavy. That\'s why they call it weight. — Arnold',
+  'The worst thing I can be is the same as everybody else. — Arnold',
+  'Champions aren\'t made in gyms. Champions are made from something deep inside. — Arnold',
+  'Wer nicht trainiert, hat keine Entschuldigungen – nur Ergebnisse, die fehlen. — Markus Rühl',
+  'Ich hab\' nie gezählt, wie viel ich hebe. Ich hab\' gezählt, wie oft ich aufgestanden bin. — Markus Rühl',
+  'Schmerz ist Schwäche, die den Körper verlässt. — Markus Rühl',
+  'Das Eisen lügt nie. Menschen lügen, Zahlen lügen – aber das Eisen nicht. — Markus Rühl',
+  'Wenn\'s brennt, wird\'s gut. — Markus Rühl',
+  'Der Körper hat immer mehr drauf als der Kopf glaubt. — Markus Rühl',
+  'Aufhören ist keine Option. Pause ja, aufhören nein. — Markus Rühl',
+  'Ich bin nicht hier um gut auszusehen. Ich bin hier um stärker zu werden. — Markus Rühl',
+  'Milk is for babies. When you grow up you have to drink beer. — Arnold',
+  'Nobody ever got big by watching somebody else train. — Arnold',
+  'Du willst aufhören? Dann mach noch drei. — Markus Rühl',
+  'Hustle beats talent when talent doesn\'t hustle. — Arnold',
+  'The body achieves what the mind believes. — Arnold',
+  'Keine Ausreden. Kein Mitleid. Einfach machen. — Markus Rühl',
+  'I\'ll be back. And so will you – after every rest day. — Arnold',
+  'Wer Muskeln will, muss leiden wollen. Klingt hart, ist aber so. — Markus Rühl',
+  'Ein schlechtes Training ist besser als kein Training. — Markus Rühl',
+  'Eat, sleep, train, repeat – und irgendwann passt nix mehr. — Markus Rühl',
+  'Failure is not an option. Everyone has to succeed. — Arnold',
+  'You can\'t climb the ladder of success with your hands in your pockets. — Arnold',
+  'Der einzige schlechte Satz im Training ist der, den du nicht gemacht hast. — Markus Rühl',
+  'Help others and give something back. — Arnold',
+  'Shut up and train. — Markus Rühl',
+];
+
 // ===== TRAINING PLAN =====
 const DEFAULT_PLAN = {
   push: {
@@ -612,7 +647,8 @@ function HomeScreen({ user, onLogout, onChangeAvatar, plan: PLAN, todayPlan, tod
         <div className="absolute -right-8 -top-8 opacity-10"><Dumbbell className="w-48 h-48" /></div>
         <div className="relative z-10">
           <div className="font-mono text-xs uppercase tracking-widest text-white/70 mb-2">Heutiges Training</div>
-          <div className="font-display text-5xl text-white leading-none mb-4">{todayPlan.name.toUpperCase()}</div>
+          <div className="font-display text-5xl text-white leading-none mb-3">{todayPlan.name.toUpperCase()}</div>
+          <div className="text-white/75 text-xs font-mono italic mb-4 leading-snug">&ldquo;{MOTIVATION_QUOTES[new Date().getDate() % MOTIVATION_QUOTES.length]}&rdquo;</div>
           {!isRest && !isAnyCardio && <div className="text-white/80 text-sm mb-6 font-mono">{todayPlan.exercises.length} Übungen · ca. 60–75 Min</div>}
           {isRest && <div className="text-white/90 text-sm mb-6">Heute ist Pausentag. Ruhe ist Teil des Plans – Cortisol runter, Muskeln wachsen lassen.</div>}
           {isAnyCardio && (
@@ -2354,12 +2390,13 @@ function DashboardScreen({ user }) {
   );
 }
 
-// ===== STEP COUNTER =====
+// ===== GOLDEN RULES WITH STREAK =====
 function GoldenRules() {
   const todayKey = new Date().toISOString().split('T')[0];
-  const storageKey = `golden_rules_${todayKey}`;
+
+  // Load today's state
   const [checked, setChecked] = useState(() => {
-    try { return JSON.parse(localStorage.getItem(storageKey)) || [false, false, false]; }
+    try { return JSON.parse(localStorage.getItem(`golden_rules_${todayKey}`)) || [false, false, false]; }
     catch { return [false, false, false]; }
   });
 
@@ -2367,8 +2404,20 @@ function GoldenRules() {
     const next = [...checked];
     next[i] = !next[i];
     setChecked(next);
-    try { localStorage.setItem(storageKey, JSON.stringify(next)); } catch {}
+    try { localStorage.setItem(`golden_rules_${todayKey}`, JSON.stringify(next)); } catch {}
   };
+
+  // Build last 7 days (Mon-Sun of current week relative to today)
+  const last7 = Array.from({ length: 7 }, (_, offset) => {
+    const d = new Date();
+    d.setDate(d.getDate() - (6 - offset));
+    const key = `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
+    const isToday = key === todayKey;
+    let stored;
+    try { stored = JSON.parse(localStorage.getItem(`golden_rules_${key}`)); } catch {}
+    const data = stored || (isToday ? checked : null);
+    return { key, isToday, data };
+  });
 
   const rules = [
     { icon: '💧', label: '3L Wasser', sub: 'mind. täglich' },
@@ -2385,9 +2434,7 @@ function GoldenRules() {
             key={i}
             onClick={() => toggle(i)}
             className={`rounded-xl p-3 border flex flex-col items-center gap-1 transition-all ${
-              checked[i]
-                ? 'bg-emerald-950/60 border-emerald-700/60'
-                : 'bg-zinc-900 border-zinc-800'
+              checked[i] ? 'bg-emerald-950/60 border-emerald-700/60' : 'bg-zinc-900 border-zinc-800'
             }`}
           >
             <span className="text-2xl">{r.icon}</span>
@@ -2395,7 +2442,31 @@ function GoldenRules() {
               {r.label}
             </span>
             <span className="font-mono text-[10px] text-zinc-500 text-center leading-tight">{r.sub}</span>
-            {checked[i] && <span className="font-mono text-[10px] text-emerald-500">✓ erledigt</span>}
+            {/* 7-day streak dots */}
+            <div className="flex gap-0.5 mt-1">
+              {last7.map(({ key, isToday, data }) => {
+                const done = data ? data[i] : null;
+                const isFuture = false; // all 7 are past or today
+                return (
+                  <span
+                    key={key}
+                    className={`w-4 h-4 rounded-sm flex items-center justify-center text-[9px] font-bold border ${
+                      isToday
+                        ? done
+                          ? 'bg-emerald-600 border-emerald-500 text-white'
+                          : 'bg-zinc-800 border-zinc-600 text-zinc-400'
+                        : done === true
+                          ? 'bg-emerald-800/70 border-emerald-700/50 text-emerald-300'
+                          : done === false
+                            ? 'bg-red-950/60 border-red-900/50 text-red-400'
+                            : 'bg-zinc-900 border-zinc-800 text-zinc-700'
+                    }`}
+                  >
+                    {done === true ? '✓' : done === false ? '✗' : '·'}
+                  </span>
+                );
+              })}
+            </div>
           </button>
         ))}
       </div>
@@ -2646,11 +2717,11 @@ function CoachScreen({ user, currentPlan, currentSchedule, onPlanSaved, showToas
     setBusy(false);
   };
 
-  const inputBottom = keyboardOffset > 0 ? `${keyboardOffset}px` : 'var(--nav-h)';
+  const kbStyle = keyboardOffset > 0 ? { bottom: `${keyboardOffset}px` } : {};
 
   if (reviewOpen && proposedPlan) {
     return (
-      <div className="coach-screen safe-top overflow-y-auto">
+      <div className="coach-screen safe-top overflow-y-auto" style={kbStyle}>
         <div className="px-5 pt-6 pb-8 max-w-2xl mx-auto">
           <PlanReview
             plan={proposedPlan}
@@ -2664,7 +2735,7 @@ function CoachScreen({ user, currentPlan, currentSchedule, onPlanSaved, showToas
   }
 
   return (
-    <div className="coach-screen safe-top">
+    <div className="coach-screen safe-top" style={kbStyle}>
       <div className="px-5 pt-6 pb-3 flex items-start justify-between border-b border-zinc-900 flex-shrink-0">
         <div>
           <div className="font-mono text-xs text-zinc-500 uppercase tracking-widest mb-1">Dein</div>
@@ -2677,8 +2748,8 @@ function CoachScreen({ user, currentPlan, currentSchedule, onPlanSaved, showToas
         )}
       </div>
 
-      {/* Messages – einzige Scroll-Zone, Padding unten für fixierte Inputleiste */}
-      <div ref={scrollRef} className="flex-1 overflow-y-auto px-4 py-3 space-y-3" style={{ paddingBottom: '5.5rem' }}>
+      {/* Messages – scroll zone */}
+      <div ref={scrollRef} className="flex-1 overflow-y-auto px-4 py-3 space-y-3">
         {messages.map((m, i) => (
           <div key={i} className={`flex ${m.role === 'user' ? 'justify-end' : 'justify-start'}`}>
             <div className={`max-w-[85%] rounded-2xl px-4 py-2.5 text-sm whitespace-pre-wrap ${
@@ -2699,54 +2770,46 @@ function CoachScreen({ user, currentPlan, currentSchedule, onPlanSaved, showToas
         )}
       </div>
 
-      {/* Input-Bar + Banner – fixed direkt über Menüleiste */}
-      <div className="fixed left-0 right-0 bg-zinc-950 z-20" style={{ bottom: inputBottom }}>
-        {/* Plan ready banner */}
-        {proposedPlan && (
-          <div className="bg-emerald-950/60 border-t border-emerald-800/50 px-4 py-3 flex items-center gap-3">
-            <Sparkles className="w-5 h-5 text-emerald-400 flex-shrink-0" />
-            <div className="flex-1 text-sm text-emerald-200">Neuer Plan vorbereitet</div>
-            <button onClick={() => setReviewOpen(true)}
-              className="bg-emerald-600 hover:bg-emerald-700 text-white font-mono text-xs px-3 py-1.5 rounded-lg">
-              ANSEHEN
-            </button>
-          </div>
-        )}
-
-        {/* Quick prompts – only first time */}
-        {messages.length <= 1 && (
-          <div className="px-4 pt-2 flex gap-2 overflow-x-auto pb-1">
-            {[
-              'Plan optimal für Cut?',
-              'Mehr Volumen Schultern',
-              'Plan für 4 Tage',
-              'Progressiv überlasten?',
-            ].map((q, i) => (
-              <button key={i} onClick={() => setInput(q)}
-                className="flex-shrink-0 bg-zinc-900 border border-zinc-800 hover:bg-zinc-800 rounded-full px-3 py-1.5 font-mono text-xs text-zinc-300">
-                {q}
-              </button>
-            ))}
-          </div>
-        )}
-
-        {/* Input */}
-        <div className="px-4 py-3 border-t border-zinc-900 flex gap-2">
-          <input
-            ref={inputRef}
-            type="text"
-            value={input}
-            onChange={e => setInput(e.target.value)}
-            onKeyDown={e => e.key === 'Enter' && !e.shiftKey && (e.preventDefault(), send())}
-            placeholder="Frag deinen Coach..."
-            disabled={busy}
-            className="flex-1 bg-zinc-900 border border-zinc-800 rounded-xl px-4 py-3 text-sm text-zinc-100 focus:border-red-500 focus:outline-none"
-          />
-          <button onClick={send} disabled={busy || !input.trim()}
-            className="bg-red-600 hover:bg-red-700 disabled:bg-zinc-800 disabled:text-zinc-500 text-white font-mono text-sm px-4 rounded-xl">
-            {busy ? '...' : 'SEND'}
+      {/* Plan ready banner */}
+      {proposedPlan && (
+        <div className="bg-emerald-950/60 border-t border-emerald-800/50 px-4 py-3 flex items-center gap-3 flex-shrink-0">
+          <Sparkles className="w-5 h-5 text-emerald-400 flex-shrink-0" />
+          <div className="flex-1 text-sm text-emerald-200">Neuer Plan vorbereitet</div>
+          <button onClick={() => setReviewOpen(true)}
+            className="bg-emerald-600 hover:bg-emerald-700 text-white font-mono text-xs px-3 py-1.5 rounded-lg">
+            ANSEHEN
           </button>
         </div>
+      )}
+
+      {/* Quick prompts – only first time */}
+      {messages.length <= 1 && (
+        <div className="px-4 pt-2 flex gap-2 overflow-x-auto pb-1 flex-shrink-0">
+          {['Plan optimal für Cut?', 'Mehr Volumen Schultern', 'Plan für 4 Tage', 'Progressiv überlasten?'].map((q, i) => (
+            <button key={i} onClick={() => setInput(q)}
+              className="flex-shrink-0 bg-zinc-900 border border-zinc-800 hover:bg-zinc-800 rounded-full px-3 py-1.5 font-mono text-xs text-zinc-300">
+              {q}
+            </button>
+          ))}
+        </div>
+      )}
+
+      {/* Input */}
+      <div className="px-4 py-3 border-t border-zinc-900 flex gap-2 flex-shrink-0">
+        <input
+          ref={inputRef}
+          type="text"
+          value={input}
+          onChange={e => setInput(e.target.value)}
+          onKeyDown={e => e.key === 'Enter' && !e.shiftKey && (e.preventDefault(), send())}
+          placeholder="Frag deinen Coach..."
+          disabled={busy}
+          className="flex-1 bg-zinc-900 border border-zinc-800 rounded-xl px-4 py-3 text-sm text-zinc-100 focus:border-red-500 focus:outline-none"
+        />
+        <button onClick={send} disabled={busy || !input.trim()}
+          className="bg-red-600 hover:bg-red-700 disabled:bg-zinc-800 disabled:text-zinc-500 text-white font-mono text-sm px-4 rounded-xl">
+          {busy ? '...' : 'SEND'}
+        </button>
       </div>
 
       {confirmClear && (

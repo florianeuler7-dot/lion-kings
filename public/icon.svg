@@ -1,0 +1,32 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
+  <rect width="512" height="512" fill="#0a0a0a" rx="110"/>
+
+  <g transform="rotate(-15, 256, 256)" stroke="#aaaaaa" stroke-linecap="round" stroke-linejoin="round" fill="none">
+
+    <!-- Left outer plate -->
+    <rect x="52" y="168" width="52" height="176" rx="22" stroke-width="14" fill="#1a1a1a"/>
+    <!-- Left inner plate -->
+    <rect x="104" y="188" width="40" height="136" rx="18" stroke-width="14" fill="#1a1a1a"/>
+    <!-- Left collar -->
+    <rect x="144" y="218" width="22" height="76" rx="8" stroke-width="12" fill="#1a1a1a"/>
+
+    <!-- Bar -->
+    <rect x="166" y="236" width="180" height="40" rx="8" stroke-width="12" fill="#1a1a1a"/>
+
+    <!-- Center knurl detail -->
+    <circle cx="248" cy="256" r="6" stroke-width="10" fill="#aaaaaa"/>
+    <line x1="266" y1="256" x2="308" y2="256" stroke-width="8"/>
+
+    <!-- Right collar -->
+    <rect x="346" y="218" width="22" height="76" rx="8" stroke-width="12" fill="#1a1a1a"/>
+    <!-- Right inner plate -->
+    <rect x="368" y="188" width="40" height="136" rx="18" stroke-width="14" fill="#1a1a1a"/>
+    <!-- Right outer plate -->
+    <rect x="408" y="168" width="52" height="176" rx="22" stroke-width="14" fill="#1a1a1a"/>
+
+    <!-- Left end cap -->
+    <rect x="36" y="228" width="16" height="56" rx="8" stroke-width="10" fill="#1a1a1a"/>
+    <!-- Right end cap -->
+    <rect x="460" y="228" width="16" height="56" rx="8" stroke-width="10" fill="#1a1a1a"/>
+  </g>
+</svg>
