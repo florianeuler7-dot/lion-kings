@@ -575,6 +575,8 @@ export default function App() {
           </div>
         </nav>
       )}
+      {/* fills the physical screen bottom (home indicator area) with nav color */}
+      <div style={{ position: 'fixed', bottom: 0, left: 0, right: 0, height: 'env(safe-area-inset-bottom, 0px)', background: '#18181b', zIndex: 19 }} />
     </div>
   );
 }

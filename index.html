@@ -29,6 +29,7 @@
 
     <style>
       html, body, #root { height: 100%; background: #0a0a0a; overflow-x: hidden; }
+      html { background: #18181b; }
       body {
         font-family: 'DM Sans', sans-serif;
         color: #f5f5f5;
@@ -62,19 +63,7 @@
         position: fixed; bottom: 0; left: 0; right: 0; z-index: 20;
         background: #18181b;
         border-top: 1px solid #27272a;
-        backdrop-filter: blur(12px);
-        -webkit-backdrop-filter: blur(12px);
         padding-bottom: env(safe-area-inset-bottom, 0px);
-      }
-      /* Always fill the gap below the nav on iOS PWA */
-      body::after {
-        content: '';
-        position: fixed;
-        bottom: 0; left: 0; right: 0;
-        height: 60px;
-        background: #18181b;
-        z-index: 19;
-        pointer-events: none;
       }
       .coach-screen {
         position: fixed; top: 0; left: 0; right: 0;
