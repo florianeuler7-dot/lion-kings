@@ -256,6 +256,34 @@ export async function toggleReaction(workoutId, userId, emoji) {
   }
 }
 
+// ===== COMMENTS =====
+
+export async function getCommentsForWorkouts(workoutIds) {
+  if (!workoutIds.length) return {};
+  const { data, error } = await supabase
+    .from('comments')
+    .select('*, users(id, name, avatar_url)')
+    .in('workout_id', workoutIds)
+    .order('created_at', { ascending: true });
+  if (error) throw error;
+  const grouped = {};
+  (data || []).forEach(c => {
+    if (!grouped[c.workout_id]) grouped[c.workout_id] = [];
+    grouped[c.workout_id].push(c);
+  });
+  return grouped;
+}
+
+export async function addComment(workoutId, userId, content) {
+  const { data, error } = await supabase
+    .from('comments')
+    .insert({ workout_id: workoutId, user_id: userId, content: content.trim() })
+    .select('*, users(id, name, avatar_url)')
+    .single();
+  if (error) throw error;
+  return data;
+}
+
 // Compute stats for a user's workouts
 export function computeUserStats(workouts) {
   const totalWorkouts = workouts.length;

@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { Dumbbell, Play, Pause, SkipForward, Check, Calendar, History, Home, X, Droplet, ChevronRight, Clock, Flame, TrendingUp, Coffee, Timer, Heart, Activity, Sparkles, User, LogOut, AlertCircle, Users, Trophy, Zap, Plus, Minus, Camera, Upload, StickyNote, Forward } from 'lucide-react';
-import { findUserByName, getUserById, createUser, getLastWorkoutDate, getUserWorkouts, saveWorkout, rowToWorkout, computeLastWeights, getAllUsers, getActivityFeed, getAllLiveStatuses, setLiveStatus, clearLiveStatus, getReactionsForWorkouts, toggleReaction, computeUserStats, supabase, uploadAvatar, updateUserAvatar, saveUserPlan, getActivePlanForUser, parsePlanText, coachChat } from './supabase';
+import { Dumbbell, Play, Pause, SkipForward, Check, Calendar, History, Home, X, Droplet, ChevronRight, Clock, Flame, TrendingUp, Coffee, Timer, Heart, Activity, Sparkles, User, LogOut, AlertCircle, Users, Trophy, Zap, Plus, Minus, Camera, Upload, StickyNote, Forward, MessageCircle, Send } from 'lucide-react';
+import { findUserByName, getUserById, createUser, getLastWorkoutDate, getUserWorkouts, saveWorkout, rowToWorkout, computeLastWeights, getAllUsers, getActivityFeed, getAllLiveStatuses, setLiveStatus, clearLiveStatus, getReactionsForWorkouts, toggleReaction, getCommentsForWorkouts, addComment, computeUserStats, supabase, uploadAvatar, updateUserAvatar, saveUserPlan, getActivePlanForUser, parsePlanText, coachChat } from './supabase';
 
 // ===== TRAINING PLAN =====
 const DEFAULT_PLAN = {
@@ -659,7 +659,7 @@ function HomeScreen({ user, onLogout, onChangeAvatar, plan: PLAN, todayPlan, tod
       <div className="mb-6">
         <div className="font-mono text-xs text-zinc-500 uppercase tracking-widest mb-3">Anderes Training starten</div>
         <div className="space-y-2">
-          {[...new Set(PLAN && Object.keys(PLAN).filter(k => k !== 'rest' && k !== 'cardio' && PLAN[k]?.exercises?.length > 0))].map(k => (
+          {[...new Set(PLAN && Object.keys(PLAN).filter(k => k !== 'rest' && k !== 'cardio' && k !== 'cardio_optional' && PLAN[k]?.exercises?.length > 0))].map(k => (
             <button key={k} onClick={() => onPickOther(k)} className="w-full bg-zinc-900 border border-zinc-800 rounded-xl p-4 flex items-center justify-between">
               <div className="flex items-center gap-3 text-left">
                 <div className="bg-zinc-950 rounded-lg p-2">
@@ -688,7 +688,7 @@ function HomeScreen({ user, onLogout, onChangeAvatar, plan: PLAN, todayPlan, tod
                   CARDIO
                   {isAnyCardio && <span className="text-xs text-red-400 font-mono">(HEUTE)</span>}
                 </div>
-                <div className="font-mono text-xs text-zinc-500">Zone-2 oder HIIT</div>
+                <div className="font-mono text-xs text-zinc-500">30–40 Min locker · Zone-2 oder HIIT</div>
               </div>
             </div>
             <ChevronRight className="w-5 h-5 text-zinc-600" />
@@ -905,9 +905,9 @@ function WorkoutScreen({ workout, setWorkout, lastWeights, onFinish, onCancel, s
   return (
     <div className="min-h-screen flex flex-col">
       <div className="pt-6 pb-4 flex items-center justify-between">
-        <button onClick={onCancel} className="text-zinc-500"><X className="w-6 h-6" /></button>
-        <div className="font-mono text-xs text-zinc-500">Übung {exerciseIdx + 1} / {plan.exercises.length}</div>
         <div className="w-6"></div>
+        <div className="font-mono text-xs text-zinc-500">Übung {exerciseIdx + 1} / {plan.exercises.length}</div>
+        <button onClick={onCancel} className="text-zinc-500"><X className="w-6 h-6" /></button>
       </div>
 
       <div className="h-1 bg-zinc-900 rounded-full overflow-hidden mb-4">
@@ -1137,7 +1137,7 @@ function HistoryScreen({ history }) {
 }
 
 function PlanScreen({ plan: PLAN, schedule }) {
-  const [open, setOpen] = useState('push');
+  const [open, setOpen] = useState(null);
   return (
     <div className="pt-8">
       <div className="mb-6">
@@ -1188,6 +1188,23 @@ function PlanScreen({ plan: PLAN, schedule }) {
             )}
           </div>
         ))}
+        {/* Cardio */}
+        <div className="bg-zinc-900 rounded-xl border border-zinc-800 p-5 gap-4">
+          <div className="flex items-center gap-3 mb-3">
+            <Heart className="w-5 h-5 text-emerald-500 flex-shrink-0" />
+            <div className="font-display text-2xl text-zinc-100">CARDIO</div>
+          </div>
+          <div className="space-y-2 font-mono text-xs text-zinc-400">
+            <div className="flex items-start gap-2">
+              <span className="text-emerald-500 flex-shrink-0">Zone-2</span>
+              <span>30–40 Min locker – du kannst noch reden, konstantes Tempo</span>
+            </div>
+            <div className="flex items-start gap-2">
+              <span className="text-red-400 flex-shrink-0">HIIT</span>
+              <span>Intervalle – kurze Belastungsspitzen, dann Erholung</span>
+            </div>
+          </div>
+        </div>
       </div>
       <div className="bg-zinc-900 rounded-xl p-5 border border-zinc-800">
         <div className="font-mono text-xs text-red-500 uppercase mb-2">Ernährung Cut</div>
@@ -1266,9 +1283,9 @@ function CardioScreen({ onFinish, onCancel, showToast, user, combinedFlow }) {
   return (
     <div className="min-h-screen flex flex-col">
       <div className="pt-6 pb-4 flex items-center justify-between">
-        <button onClick={onCancel} className="text-zinc-500"><X className="w-6 h-6" /></button>
-        <div className="font-mono text-xs text-zinc-500">CARDIO</div>
         <div className="w-6"></div>
+        <div className="font-mono text-xs text-zinc-500">CARDIO</div>
+        <button onClick={onCancel} className="text-zinc-500"><X className="w-6 h-6" /></button>
       </div>
 
       {!running && elapsed === 0 && (
@@ -1406,9 +1423,9 @@ function MobilityScreen({ onFinish, onCancel, user, combinedFlow }) {
     return (
       <div className="min-h-screen flex flex-col">
         <div className="pt-6 pb-4 flex items-center justify-between">
-          <button onClick={onCancel} className="text-zinc-500"><X className="w-6 h-6" /></button>
-          <div className="font-mono text-xs text-zinc-500">MOBILITY</div>
           <div className="w-6"></div>
+          <div className="font-mono text-xs text-zinc-500">MOBILITY</div>
+          <button onClick={onCancel} className="text-zinc-500"><X className="w-6 h-6" /></button>
         </div>
 
         <div className="mb-6">
@@ -1443,11 +1460,11 @@ function MobilityScreen({ onFinish, onCancel, user, combinedFlow }) {
   return (
     <div className="min-h-screen flex flex-col">
       <div className="pt-6 pb-4 flex items-center justify-between">
-        <button onClick={() => setFocus(null)} className="text-zinc-500 flex items-center gap-1">
+        <div className="w-6"></div>
+        <div className="font-mono text-xs text-zinc-500">{completedCount} / {totalCount}</div>
+        <button onClick={() => setFocus(null)} className="text-zinc-500">
           <X className="w-6 h-6" />
         </button>
-        <div className="font-mono text-xs text-zinc-500">{completedCount} / {totalCount}</div>
-        <div className="w-6"></div>
       </div>
 
       {/* Progress bar */}
@@ -1969,6 +1986,9 @@ function DashboardScreen({ user }) {
   const [liveStatuses, setLiveStatuses] = useState([]);
   const [feed, setFeed] = useState([]);
   const [reactions, setReactions] = useState({});
+  const [comments, setComments] = useState({});
+  const [openComments, setOpenComments] = useState(null); // workoutId
+  const [commentInputs, setCommentInputs] = useState({}); // workoutId -> text
   const [allWorkoutsByUser, setAllWorkoutsByUser] = useState({});
   const [loading, setLoading] = useState(true);
   const [tab, setTab] = useState('feed');
@@ -1993,8 +2013,12 @@ function DashboardScreen({ user }) {
       setFeed(feedRows);
 
       const ids = feedRows.map(w => w.id);
-      const reactionsMap = await getReactionsForWorkouts(ids);
+      const [reactionsMap, commentsMap] = await Promise.all([
+        getReactionsForWorkouts(ids),
+        getCommentsForWorkouts(ids),
+      ]);
       setReactions(reactionsMap);
+      setComments(commentsMap);
 
       const byUser = {};
       feedRows.forEach(w => {
@@ -2017,6 +2041,7 @@ function DashboardScreen({ user }) {
       .on('postgres_changes', { event: '*', schema: 'public', table: 'live_status' }, () => debouncedLoad())
       .on('postgres_changes', { event: '*', schema: 'public', table: 'workouts' }, () => debouncedLoad())
       .on('postgres_changes', { event: '*', schema: 'public', table: 'reactions' }, () => debouncedLoad())
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'comments' }, () => debouncedLoad())
       .subscribe();
     return () => {
       supabase.removeChannel(channel);
@@ -2038,6 +2063,21 @@ function DashboardScreen({ user }) {
       setReactions({ ...reactions, [workoutId]: newList });
     } catch (e) {
       console.error('Reaction error:', e);
+    }
+  };
+
+  const handleAddComment = async (workoutId) => {
+    const text = (commentInputs[workoutId] || '').trim();
+    if (!text) return;
+    try {
+      const newComment = await addComment(workoutId, user.id, text);
+      setComments(prev => ({
+        ...prev,
+        [workoutId]: [...(prev[workoutId] || []), newComment],
+      }));
+      setCommentInputs(prev => ({ ...prev, [workoutId]: '' }));
+    } catch (e) {
+      console.error('Comment error:', e);
     }
   };
 
@@ -2270,7 +2310,41 @@ function DashboardScreen({ user }) {
                       </button>
                     ))}
                   </div>
+                  <button
+                    onClick={() => setOpenComments(openComments === w.id ? null : w.id)}
+                    className="ml-auto flex items-center gap-1 text-zinc-500 hover:text-zinc-300 transition-colors">
+                    <MessageCircle className="w-4 h-4" />
+                    {(comments[w.id] || []).length > 0 && (
+                      <span className="font-mono text-xs">{(comments[w.id] || []).length}</span>
+                    )}
+                  </button>
                 </div>
+
+                {openComments === w.id && (
+                  <div className="ml-12 mt-3 space-y-2">
+                    {(comments[w.id] || []).map(c => (
+                      <div key={c.id} className="flex items-start gap-2">
+                        <div className="font-display text-xs text-red-400 flex-shrink-0 pt-0.5">{c.users?.name?.toUpperCase()}</div>
+                        <div className="font-mono text-xs text-zinc-300 flex-1">{c.content}</div>
+                      </div>
+                    ))}
+                    <div className="flex items-center gap-2 mt-2">
+                      <input
+                        type="text"
+                        value={commentInputs[w.id] || ''}
+                        onChange={e => setCommentInputs(prev => ({ ...prev, [w.id]: e.target.value }))}
+                        onKeyDown={e => e.key === 'Enter' && handleAddComment(w.id)}
+                        placeholder="Kommentar..."
+                        className="flex-1 bg-zinc-800 border border-zinc-700 rounded-lg px-3 py-1.5 text-xs font-mono text-zinc-100 placeholder-zinc-600 outline-none focus:border-zinc-600"
+                      />
+                      <button
+                        onClick={() => handleAddComment(w.id)}
+                        className="p-1.5 bg-red-600 rounded-lg hover:bg-red-500 transition-colors">
+                        <Send className="w-3.5 h-3.5 text-white" />
+                      </button>
+                    </div>
+                  </div>
+                )}
               </div>
             );
           })}
@@ -2412,7 +2486,7 @@ function CoachOnboardingChat({ messages, input, setInput, onSend, busy, parsedPl
 
 // ===== PLAN REVIEW =====
 function PlanReview({ plan, onConfirm, onBack, busy }) {
-  const [open, setOpen] = useState('push');
+  const [open, setOpen] = useState(null);
   const dayLabels = ['So', 'Mo', 'Di', 'Mi', 'Do', 'Fr', 'Sa'];
 
   return (
@@ -2572,11 +2646,11 @@ function CoachScreen({ user, currentPlan, currentSchedule, onPlanSaved, showToas
     setBusy(false);
   };
 
-  const kbStyle = keyboardOffset > 0 ? { bottom: `${keyboardOffset}px` } : {};
+  const inputBottom = keyboardOffset > 0 ? `${keyboardOffset}px` : 'var(--nav-h)';
 
   if (reviewOpen && proposedPlan) {
     return (
-      <div className="coach-screen safe-top overflow-y-auto" style={kbStyle}>
+      <div className="coach-screen safe-top overflow-y-auto">
         <div className="px-5 pt-6 pb-8 max-w-2xl mx-auto">
           <PlanReview
             plan={proposedPlan}
@@ -2590,7 +2664,7 @@ function CoachScreen({ user, currentPlan, currentSchedule, onPlanSaved, showToas
   }
 
   return (
-    <div className="coach-screen safe-top relative" style={kbStyle}>
+    <div className="coach-screen safe-top">
       <div className="px-5 pt-6 pb-3 flex items-start justify-between border-b border-zinc-900 flex-shrink-0">
         <div>
           <div className="font-mono text-xs text-zinc-500 uppercase tracking-widest mb-1">Dein</div>
@@ -2603,8 +2677,8 @@ function CoachScreen({ user, currentPlan, currentSchedule, onPlanSaved, showToas
         )}
       </div>
 
-      {/* Messages – einzige Scroll-Zone */}
-      <div ref={scrollRef} className="flex-1 overflow-y-auto px-4 py-3 space-y-3">
+      {/* Messages – einzige Scroll-Zone, Padding unten für fixierte Inputleiste */}
+      <div ref={scrollRef} className="flex-1 overflow-y-auto px-4 py-3 space-y-3" style={{ paddingBottom: '5.5rem' }}>
         {messages.map((m, i) => (
           <div key={i} className={`flex ${m.role === 'user' ? 'justify-end' : 'justify-start'}`}>
             <div className={`max-w-[85%] rounded-2xl px-4 py-2.5 text-sm whitespace-pre-wrap ${
@@ -2625,51 +2699,54 @@ function CoachScreen({ user, currentPlan, currentSchedule, onPlanSaved, showToas
         )}
       </div>
 
-      {/* Plan ready banner – sticky over input */}
-      {proposedPlan && (
-        <div className="bg-emerald-950/60 border-t border-emerald-800/50 px-4 py-3 flex items-center gap-3 flex-shrink-0">
-          <Sparkles className="w-5 h-5 text-emerald-400 flex-shrink-0" />
-          <div className="flex-1 text-sm text-emerald-200">Neuer Plan vorbereitet</div>
-          <button onClick={() => setReviewOpen(true)}
-            className="bg-emerald-600 hover:bg-emerald-700 text-white font-mono text-xs px-3 py-1.5 rounded-lg">
-            ANSEHEN
+      {/* Input-Bar + Banner – fixed direkt über Menüleiste */}
+      <div className="fixed left-0 right-0 bg-zinc-950 z-20" style={{ bottom: inputBottom }}>
+        {/* Plan ready banner */}
+        {proposedPlan && (
+          <div className="bg-emerald-950/60 border-t border-emerald-800/50 px-4 py-3 flex items-center gap-3">
+            <Sparkles className="w-5 h-5 text-emerald-400 flex-shrink-0" />
+            <div className="flex-1 text-sm text-emerald-200">Neuer Plan vorbereitet</div>
+            <button onClick={() => setReviewOpen(true)}
+              className="bg-emerald-600 hover:bg-emerald-700 text-white font-mono text-xs px-3 py-1.5 rounded-lg">
+              ANSEHEN
+            </button>
+          </div>
+        )}
+
+        {/* Quick prompts – only first time */}
+        {messages.length <= 1 && (
+          <div className="px-4 pt-2 flex gap-2 overflow-x-auto pb-1">
+            {[
+              'Plan optimal für Cut?',
+              'Mehr Volumen Schultern',
+              'Plan für 4 Tage',
+              'Progressiv überlasten?',
+            ].map((q, i) => (
+              <button key={i} onClick={() => setInput(q)}
+                className="flex-shrink-0 bg-zinc-900 border border-zinc-800 hover:bg-zinc-800 rounded-full px-3 py-1.5 font-mono text-xs text-zinc-300">
+                {q}
+              </button>
+            ))}
+          </div>
+        )}
+
+        {/* Input */}
+        <div className="px-4 py-3 border-t border-zinc-900 flex gap-2">
+          <input
+            ref={inputRef}
+            type="text"
+            value={input}
+            onChange={e => setInput(e.target.value)}
+            onKeyDown={e => e.key === 'Enter' && !e.shiftKey && (e.preventDefault(), send())}
+            placeholder="Frag deinen Coach..."
+            disabled={busy}
+            className="flex-1 bg-zinc-900 border border-zinc-800 rounded-xl px-4 py-3 text-sm text-zinc-100 focus:border-red-500 focus:outline-none"
+          />
+          <button onClick={send} disabled={busy || !input.trim()}
+            className="bg-red-600 hover:bg-red-700 disabled:bg-zinc-800 disabled:text-zinc-500 text-white font-mono text-sm px-4 rounded-xl">
+            {busy ? '...' : 'SEND'}
           </button>
         </div>
-      )}
-
-      {/* Quick prompts – only first time */}
-      {messages.length <= 1 && (
-        <div className="px-4 pt-2 flex gap-2 overflow-x-auto pb-1 flex-shrink-0">
-          {[
-            'Plan optimal für Cut?',
-            'Mehr Volumen Schultern',
-            'Plan für 4 Tage',
-            'Progressiv überlasten?',
-          ].map((q, i) => (
-            <button key={i} onClick={() => setInput(q)}
-              className="flex-shrink-0 bg-zinc-900 border border-zinc-800 hover:bg-zinc-800 rounded-full px-3 py-1.5 font-mono text-xs text-zinc-300">
-              {q}
-            </button>
-          ))}
-        </div>
-      )}
-
-      {/* Input – sticky bottom inside container */}
-      <div className="px-4 py-3 border-t border-zinc-900 flex gap-2 flex-shrink-0">
-        <input
-          ref={inputRef}
-          type="text"
-          value={input}
-          onChange={e => setInput(e.target.value)}
-          onKeyDown={e => e.key === 'Enter' && !e.shiftKey && (e.preventDefault(), send())}
-          placeholder="Frag deinen Coach..."
-          disabled={busy}
-          className="flex-1 bg-zinc-900 border border-zinc-800 rounded-xl px-4 py-3 text-sm text-zinc-100 focus:border-red-500 focus:outline-none"
-        />
-        <button onClick={send} disabled={busy || !input.trim()}
-          className="bg-red-600 hover:bg-red-700 disabled:bg-zinc-800 disabled:text-zinc-500 text-white font-mono text-sm px-4 rounded-xl">
-          {busy ? '...' : 'SEND'}
-        </button>
       </div>
 
       {confirmClear && (
