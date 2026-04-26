@@ -2421,8 +2421,8 @@ function GoldenRules() {
 
   const rules = [
     { icon: '💧', label: '3L Wasser', sub: 'mind. täglich' },
-    { icon: '👟', label: '10k Schritte', sub: 'jeden Tag bewegen' },
-    { icon: '🥗', label: 'Gesund essen', sub: 'echtes Essen, wenig Zucker' },
+    { icon: '👟', label: '10k Schritte', sub: 'jeden Tag' },
+    { icon: '🥗', label: 'Gesund essen', sub: 'wenig Zucker' },
   ];
 
   return (

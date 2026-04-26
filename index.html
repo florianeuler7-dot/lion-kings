@@ -65,8 +65,16 @@
         backdrop-filter: blur(12px);
         -webkit-backdrop-filter: blur(12px);
         padding-bottom: env(safe-area-inset-bottom, 0px);
-        /* extend background below viewport edge on iOS */
-        box-shadow: 0 100px 0 100px #18181b;
+      }
+      /* Always fill the gap below the nav on iOS PWA */
+      body::after {
+        content: '';
+        position: fixed;
+        bottom: 0; left: 0; right: 0;
+        height: 60px;
+        background: #18181b;
+        z-index: 19;
+        pointer-events: none;
       }
       .coach-screen {
         position: fixed; top: 0; left: 0; right: 0;
