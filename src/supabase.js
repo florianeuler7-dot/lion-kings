@@ -269,7 +269,7 @@ export function computeUserStats(workouts) {
   let cursor = new Date();
   cursor.setHours(0, 0, 0, 0);
   for (let i = 0; i < 365; i++) {
-    const ds = cursor.toISOString().split('T')[0];
+    const ds = `${cursor.getFullYear()}-${String(cursor.getMonth()+1).padStart(2,'0')}-${String(cursor.getDate()).padStart(2,'0')}`;
     if (dates.has(ds)) {
       streak++;
       cursor.setDate(cursor.getDate() - 1);

@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { Dumbbell, Play, Pause, SkipForward, Check, Calendar, History, Home, X, Droplet, ChevronRight, Clock, Flame, TrendingUp, Coffee, Timer, Heart, Activity, Sparkles, User, LogOut, AlertCircle, Users, Trophy, Zap, Footprints, Plus, Minus, Camera, Upload, StickyNote, Forward } from 'lucide-react';
-import { findUserByName, getUserById, createUser, getLastWorkoutDate, getUserWorkouts, saveWorkout, rowToWorkout, computeLastWeights, getAllUsers, getActivityFeed, getAllLiveStatuses, setLiveStatus, clearLiveStatus, getReactionsForWorkouts, toggleReaction, computeUserStats, supabase, getUserSteps, setUserSteps, getAllStepsForDate, uploadAvatar, updateUserAvatar, saveUserPlan, getActivePlanForUser, parsePlanText, coachChat } from './supabase';
+import { Dumbbell, Play, Pause, SkipForward, Check, Calendar, History, Home, X, Droplet, ChevronRight, Clock, Flame, TrendingUp, Coffee, Timer, Heart, Activity, Sparkles, User, LogOut, AlertCircle, Users, Trophy, Zap, Plus, Minus, Camera, Upload, StickyNote, Forward } from 'lucide-react';
+import { findUserByName, getUserById, createUser, getLastWorkoutDate, getUserWorkouts, saveWorkout, rowToWorkout, computeLastWeights, getAllUsers, getActivityFeed, getAllLiveStatuses, setLiveStatus, clearLiveStatus, getReactionsForWorkouts, toggleReaction, computeUserStats, supabase, uploadAvatar, updateUserAvatar, saveUserPlan, getActivePlanForUser, parsePlanText, coachChat } from './supabase';
 
 // ===== TRAINING PLAN =====
 const DEFAULT_PLAN = {
@@ -580,6 +580,8 @@ function HomeScreen({ user, onLogout, onChangeAvatar, plan: PLAN, todayPlan, tod
     }
   };
 
+  if (!todayPlan) return null;
+
   return (
     <div className="pt-8">
       {/* User strip */}
@@ -596,7 +598,7 @@ function HomeScreen({ user, onLogout, onChangeAvatar, plan: PLAN, todayPlan, tod
           </div>
           <span className="font-mono text-sm">{user.name}</span>
         </button>
-        <button onClick={onLogout} className="text-zinc-600 hover:text-zinc-400 transition-colors p-1">
+        <button onClick={onLogout} className="text-zinc-600 hover:text-zinc-400 transition-colors p-3">
           <LogOut className="w-4 h-4" />
         </button>
       </div>
@@ -844,6 +846,7 @@ function WorkoutScreen({ workout, setWorkout, lastWeights, onFinish, onCancel, s
   }, [exerciseIdx]);
 
   const logSet = () => {
+    if (navigator.vibrate) navigator.vibrate(50);
     if (!weight || !reps) {
       showToast('Gewicht und Wdh. eingeben', 'info');
       return;
@@ -1052,19 +1055,29 @@ function WorkoutScreen({ workout, setWorkout, lastWeights, onFinish, onCancel, s
 
 function HistoryScreen({ history }) {
   const entries = [...history].sort((a, b) => new Date(b.date) - new Date(a.date));
+
+  if (!entries || entries.length === 0) {
+    return (
+      <div className="pt-8">
+        <div className="mb-6">
+          <div className="font-mono text-xs text-zinc-500 uppercase tracking-widest mb-1">Dein</div>
+          <h1 className="font-display text-5xl text-zinc-100 leading-none">VERLAUF</h1>
+        </div>
+        <div className="flex flex-col items-center justify-center py-20 text-center">
+          <Dumbbell className="w-12 h-12 text-zinc-700 mb-4" />
+          <div className="font-display text-xl text-zinc-500 mb-2">Noch kein Training</div>
+          <div className="font-mono text-xs text-zinc-600">Starte dein erstes Workout auf dem Heute-Tab.</div>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="pt-8">
       <div className="mb-6">
         <div className="font-mono text-xs text-zinc-500 uppercase tracking-widest mb-1">Trainings-Verlauf</div>
         <h1 className="font-display text-5xl text-zinc-100">HISTORY</h1>
       </div>
-      {entries.length === 0 && (
-        <div className="bg-zinc-900 rounded-xl p-8 text-center border border-zinc-800">
-          <Coffee className="w-10 h-10 text-zinc-600 mx-auto mb-3" />
-          <div className="text-zinc-400">Noch keine Trainings absolviert.</div>
-          <div className="text-zinc-600 text-sm mt-1 font-mono">Fang heute an.</div>
-        </div>
-      )}
       <div className="space-y-3">
         {entries.map((e, i) => (
           <div key={i} className="bg-zinc-900 rounded-xl p-5 border border-zinc-800">
@@ -1074,7 +1087,9 @@ function HistoryScreen({ history }) {
                 <div className="font-mono text-xs text-zinc-500">{new Date(e.date).toLocaleDateString('de-DE', { weekday: 'long', day: '2-digit', month: 'long' })}</div>
               </div>
               <div className="text-right">
-                <div className="font-display text-xl text-red-500">{e.duration}<span className="text-sm text-zinc-500"> min</span></div>
+                <div className="font-display text-xl text-red-500">
+                  {e.duration > 0 ? `${Math.round(e.duration / 60)} Min` : '—'}
+                </div>
               </div>
             </div>
             {e.isCardio ? (
@@ -1614,8 +1629,9 @@ function OnboardingScreen({ onComplete }) {
     } catch (e) {
       console.error(e);
       setError('Konto konnte nicht erstellt werden – nochmal versuchen');
+    } finally {
+      setBusy(false);
     }
-    setBusy(false);
   };
 
   const goToPlanStep = () => {
@@ -1959,12 +1975,18 @@ function DashboardScreen({ user }) {
 
   const REACTIONS = ['💪', '🔥', '👏', '🦁'];
 
+  const loadTimeoutRef = useRef(null);
+  const debouncedLoad = () => {
+    if (loadTimeoutRef.current) clearTimeout(loadTimeoutRef.current);
+    loadTimeoutRef.current = setTimeout(loadAll, 1500);
+  };
+
   const loadAll = async () => {
     try {
       const [allUsers, statuses, feedRows] = await Promise.all([
         getAllUsers(),
         getAllLiveStatuses(),
-        getActivityFeed(40),
+        getActivityFeed(200),
       ]);
       setUsers(allUsers);
       setLiveStatuses(statuses);
@@ -1992,11 +2014,14 @@ function DashboardScreen({ user }) {
   useEffect(() => {
     const channel = supabase
       .channel('dashboard-changes')
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'live_status' }, () => loadAll())
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'workouts' }, () => loadAll())
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'reactions' }, () => loadAll())
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'live_status' }, () => debouncedLoad())
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'workouts' }, () => debouncedLoad())
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'reactions' }, () => debouncedLoad())
       .subscribe();
-    return () => { supabase.removeChannel(channel); };
+    return () => {
+      supabase.removeChannel(channel);
+      if (loadTimeoutRef.current) clearTimeout(loadTimeoutRef.current);
+    };
   }, []);
 
   const handleReaction = async (workoutId, emoji) => {
@@ -2304,130 +2329,6 @@ function GoldenRules() {
   );
 }
 
-function StepCounter({ user }) {
-  const [savedSteps, setSavedSteps] = useState(0);
-  const [draft, setDraft] = useState('0');
-  const [saving, setSaving] = useState(false);
-  const [justSaved, setJustSaved] = useState(false);
-  const [flashedAdd, setFlashedAdd] = useState(null); // which quick-add button just saved
-  const stepsRef = useRef(0);
-
-  const GOAL = 10000;
-
-  useEffect(() => {
-    (async () => {
-      try {
-        const s = await getUserSteps(user.id);
-        setSavedSteps(s);
-        setDraft(String(s));
-        stepsRef.current = s;
-      } catch (e) {}
-    })();
-  }, [user.id]);
-
-  const draftNum = parseInt(draft) || 0;
-  const isDirty = draftNum !== savedSteps;
-  const progress = Math.min((savedSteps / GOAL) * 100, 100);
-  const reached = savedSteps >= GOAL;
-
-  const flashSaved = () => {
-    setJustSaved(true);
-    setTimeout(() => setJustSaved(false), 1500);
-  };
-
-  const save = async () => {
-    setSaving(true);
-    try {
-      const n = Math.max(0, draftNum);
-      await setUserSteps(user.id, n);
-      setSavedSteps(n);
-      setDraft(String(n));
-      stepsRef.current = n;
-      flashSaved();
-    } catch (e) {
-      console.error('Steps save error:', e);
-    }
-    setSaving(false);
-  };
-
-  // Quick add: saves immediately + visual flash on the button
-  const quickAdd = async (delta) => {
-    const newVal = Math.max(0, stepsRef.current + delta);
-    stepsRef.current = newVal;
-    setSavedSteps(newVal);
-    setDraft(String(newVal));
-    setFlashedAdd(delta);
-    setTimeout(() => setFlashedAdd(null), 800);
-    try {
-      await setUserSteps(user.id, newVal);
-    } catch (e) {
-      console.error('Steps quick-add error:', e);
-    }
-  };
-
-  return (
-    <div className="bg-zinc-900 rounded-xl p-5 border border-zinc-800 mb-6">
-      <div className="flex items-center justify-between mb-3">
-        <div className="flex items-center gap-2">
-          <Footprints className={`w-5 h-5 ${reached ? 'text-green-500' : 'text-blue-400'}`} />
-          <div className="font-mono text-xs text-zinc-500 uppercase tracking-widest">Schritte heute</div>
-        </div>
-        <div className="font-mono text-xs text-zinc-500">
-          {savedSteps.toLocaleString('de-DE')} / {GOAL.toLocaleString('de-DE')}
-        </div>
-      </div>
-
-      {/* Progress bar */}
-      <div className="h-2 bg-zinc-800 rounded-full overflow-hidden mb-4">
-        <div className={`h-full transition-all ${reached ? 'bg-green-500' : 'bg-blue-400'}`} style={{ width: `${progress}%` }} />
-      </div>
-
-      {/* Input + Save button (only shown when value differs from saved) */}
-      <div className="flex gap-2 mb-3">
-        <input
-          type="number"
-          inputMode="numeric"
-          value={draft}
-          onChange={e => setDraft(e.target.value)}
-          onFocus={e => e.target.select()}
-          className="flex-1 bg-zinc-950 border border-zinc-800 rounded-lg px-4 py-3 text-2xl font-display text-zinc-100 focus:border-red-500 focus:outline-none"
-        />
-        {isDirty && (
-          <button
-            onClick={save}
-            disabled={saving}
-            aria-label="Speichern"
-            className="bg-green-600 hover:bg-green-700 text-white rounded-lg px-4 flex items-center justify-center"
-          >
-            <Check className="w-5 h-5" />
-          </button>
-        )}
-      </div>
-
-      {/* Quick add buttons - save immediately, flash green on tap */}
-      <div className="flex gap-2">
-        {[500, 1000, 2500].map(d => (
-          <button key={d} onClick={() => quickAdd(d)}
-            className={`flex-1 border font-mono text-xs py-2 rounded-lg flex items-center justify-center gap-1 transition-colors ${
-              flashedAdd === d
-                ? 'bg-green-600 border-green-500 text-white'
-                : 'bg-zinc-950 border-zinc-800 hover:bg-zinc-800 text-zinc-300'
-            }`}>
-            {flashedAdd === d ? <Check className="w-3 h-3" /> : <Plus className="w-3 h-3" />}
-            {flashedAdd === d ? 'gespeichert' : `${d.toLocaleString('de-DE')}`}
-          </button>
-        ))}
-      </div>
-
-      {reached && (
-        <div className="mt-3 text-center font-mono text-xs text-green-500">
-          ✓ Tagesziel erreicht
-        </div>
-      )}
-    </div>
-  );
-}
-
 // ===== COACH ONBOARDING CHAT =====
 function CoachOnboardingChat({ messages, input, setInput, onSend, busy, parsedPlan, onPlanReady, onBack }) {
   const scrollRef = useRef(null);
@@ -2439,7 +2340,7 @@ function CoachOnboardingChat({ messages, input, setInput, onSend, busy, parsedPl
   }, [messages, busy]);
 
   return (
-    <div style={{ flex: 1, display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
+    <div style={{ flex: 1, display: 'flex', flexDirection: 'column', overflow: 'hidden', height: '100%' }}>
       <div className="mb-3 flex items-center justify-between flex-shrink-0 pt-6">
         <div>
           <div className="font-mono text-xs text-zinc-500 uppercase tracking-widest mb-1">Coach</div>
@@ -2450,7 +2351,7 @@ function CoachOnboardingChat({ messages, input, setInput, onSend, busy, parsedPl
         </button>
       </div>
 
-      <div ref={scrollRef} className="flex-1 overflow-y-auto bg-zinc-900/40 border border-zinc-800 rounded-xl p-3 mb-3 space-y-3 no-scrollbar">
+      <div ref={scrollRef} className="flex-1 overflow-y-auto bg-zinc-900/40 border border-zinc-800 rounded-xl p-3 mb-3 space-y-3 no-scrollbar" style={{ minHeight: 0 }}>
         {messages.map((m, i) => (
           <div key={i} className={`flex ${m.role === 'user' ? 'justify-end' : 'justify-start'}`}>
             <div className={`max-w-[85%] rounded-2xl px-4 py-2.5 text-sm whitespace-pre-wrap ${
@@ -2590,7 +2491,9 @@ function CoachScreen({ user, currentPlan, currentSchedule, onPlanSaved, showToas
   const [proposedPlan, setProposedPlan] = useState(null);
   const [reviewOpen, setReviewOpen] = useState(false);
   const [keyboardOffset, setKeyboardOffset] = useState(0);
+  const [confirmClear, setConfirmClear] = useState(false);
   const scrollRef = useRef(null);
+  const inputRef = useRef(null);
 
   // Keyboard avoiding via visualViewport API
   useEffect(() => {
@@ -2635,6 +2538,7 @@ function CoachScreen({ user, currentPlan, currentSchedule, onPlanSaved, showToas
     const next = [...messages, userMsg];
     setMessages(next);
     setInput('');
+    setTimeout(() => inputRef.current?.focus(), 50);
     setBusy(true);
     try {
       const planWithSchedule = { ...currentPlan, schedule: currentSchedule };
@@ -2650,10 +2554,11 @@ function CoachScreen({ user, currentPlan, currentSchedule, onPlanSaved, showToas
     setBusy(false);
   };
 
-  const clearChat = () => {
-    if (!window.confirm('Verlauf löschen?')) return;
+  const clearChat = () => setConfirmClear(true);
+  const doClearChat = () => {
     setMessages([]);
     setProposedPlan(null);
+    setConfirmClear(false);
     try { localStorage.removeItem(storageKey); } catch {}
   };
 
@@ -2685,7 +2590,7 @@ function CoachScreen({ user, currentPlan, currentSchedule, onPlanSaved, showToas
   }
 
   return (
-    <div className="coach-screen safe-top" style={kbStyle}>
+    <div className="coach-screen safe-top relative" style={kbStyle}>
       <div className="px-5 pt-6 pb-3 flex items-start justify-between border-b border-zinc-900 flex-shrink-0">
         <div>
           <div className="font-mono text-xs text-zinc-500 uppercase tracking-widest mb-1">Dein</div>
@@ -2752,6 +2657,7 @@ function CoachScreen({ user, currentPlan, currentSchedule, onPlanSaved, showToas
       {/* Input – sticky bottom inside container */}
       <div className="px-4 py-3 border-t border-zinc-900 flex gap-2 flex-shrink-0">
         <input
+          ref={inputRef}
           type="text"
           value={input}
           onChange={e => setInput(e.target.value)}
@@ -2765,6 +2671,19 @@ function CoachScreen({ user, currentPlan, currentSchedule, onPlanSaved, showToas
           {busy ? '...' : 'SEND'}
         </button>
       </div>
+
+      {confirmClear && (
+        <div className="absolute inset-0 bg-black/60 flex items-center justify-center z-20 p-6">
+          <div className="bg-zinc-800 rounded-2xl p-6 w-full max-w-sm">
+            <div className="font-display text-xl text-zinc-100 mb-2">Verlauf löschen?</div>
+            <div className="font-mono text-xs text-zinc-400 mb-5">Der Chat-Verlauf wird unwiderruflich gelöscht.</div>
+            <div className="flex gap-3">
+              <button onClick={() => setConfirmClear(false)} className="flex-1 bg-zinc-700 text-zinc-200 font-mono text-sm py-3 rounded-xl">Abbrechen</button>
+              <button onClick={doClearChat} className="flex-1 bg-red-600 text-white font-mono text-sm py-3 rounded-xl">Löschen</button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

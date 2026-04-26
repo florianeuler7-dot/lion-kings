@@ -46,7 +46,6 @@ export default async (req) => {
   }
 
   const apiKey = (process.env.COACH_API_KEY || Netlify.env.get('COACH_API_KEY') || '').trim();
-  console.log('COACH_KEY prefix:', apiKey.slice(0, 14), '| len:', apiKey.length);
   if (!apiKey) {
     return new Response(JSON.stringify({ error: 'API key not configured' }), {
       status: 500,
@@ -63,22 +62,39 @@ export default async (req) => {
       });
     }
 
-    const anthropicResp = await fetch('https://api.anthropic.com/v1/messages', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'x-api-key': apiKey,
-        'anthropic-version': '2023-06-01',
-      },
-      body: JSON.stringify({
-        model: 'claude-sonnet-4-5',
-        max_tokens: 4096,
-        system: buildSystemPrompt(currentPlan, onboarding),
-        // Anthropic requires the first message to be from `user`.
-        // Filter out a leading assistant greeting if present.
-        messages: messages[0]?.role === 'assistant' ? messages.slice(1) : messages,
-      }),
-    });
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), 25000);
+    let anthropicResp;
+    try {
+      anthropicResp = await fetch('https://api.anthropic.com/v1/messages', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'x-api-key': apiKey,
+          'anthropic-version': '2023-06-01',
+        },
+        body: JSON.stringify({
+          model: 'claude-sonnet-4-5',
+          max_tokens: 4096,
+          system: buildSystemPrompt(currentPlan, onboarding),
+          // Anthropic requires the first message to be from `user`.
+          // Filter out a leading assistant greeting if present.
+          messages: messages[0]?.role === 'assistant' ? messages.slice(1) : messages,
+        }),
+        signal: controller.signal,
+      });
+    } catch (e) {
+      clearTimeout(timeout);
+      if (e.name === 'AbortError') {
+        return new Response(JSON.stringify({ error: 'Coach antwortet nicht – nochmal versuchen.' }), {
+          status: 504,
+          headers: { 'Content-Type': 'application/json' },
+        });
+      }
+      throw e;
+    } finally {
+      clearTimeout(timeout);
+    }
 
     if (!anthropicResp.ok) {
       const errText = await anthropicResp.text();
