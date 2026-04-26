@@ -2433,7 +2433,7 @@ function GoldenRules() {
           <button
             key={i}
             onClick={() => toggle(i)}
-            className={`rounded-xl p-3 border flex flex-col items-center gap-1 transition-all ${
+            className={`rounded-xl p-3 border flex flex-col items-center gap-1 transition-all overflow-hidden ${
               checked[i] ? 'bg-emerald-950/60 border-emerald-700/60' : 'bg-zinc-900 border-zinc-800'
             }`}
           >
@@ -2443,14 +2443,13 @@ function GoldenRules() {
             </span>
             <span className="font-mono text-[10px] text-zinc-500 text-center leading-tight">{r.sub}</span>
             {/* 7-day streak dots */}
-            <div className="flex gap-0.5 mt-1">
+            <div className="flex gap-px mt-1 w-full justify-center">
               {last7.map(({ key, isToday, data }) => {
                 const done = data ? data[i] : null;
-                const isFuture = false; // all 7 are past or today
                 return (
                   <span
                     key={key}
-                    className={`w-4 h-4 rounded-sm flex items-center justify-center text-[9px] font-bold border ${
+                    className={`w-[13px] h-[13px] rounded-sm flex items-center justify-center text-[8px] font-bold border ${
                       isToday
                         ? done
                           ? 'bg-emerald-600 border-emerald-500 text-white'
