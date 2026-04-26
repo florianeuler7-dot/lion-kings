@@ -67,17 +67,32 @@ function buildPlanData(customPlan) {
     return { plan: DEFAULT_PLAN, schedule: DEFAULT_SCHEDULE };
   }
   // Custom plan from DB or AI – ensure cardio + rest exist
+  const cardioBase = customPlan.cardio || DEFAULT_PLAN.cardio;
   const plan = {
     push: customPlan.push || DEFAULT_PLAN.push,
     pull: customPlan.pull || DEFAULT_PLAN.pull,
     legs: customPlan.legs || DEFAULT_PLAN.legs,
     aesthetic: customPlan.aesthetic || DEFAULT_PLAN.aesthetic,
-    cardio: customPlan.cardio || DEFAULT_PLAN.cardio,
+    cardio: cardioBase,
+    cardio_optional: customPlan.cardio_optional || { ...cardioBase, name: 'Cardio (optional)', optional: true },
     rest: customPlan.rest || DEFAULT_PLAN.rest,
   };
-  const schedule = Array.isArray(customPlan.schedule) && customPlan.schedule.length === 7
+  const VALID_KEYS = new Set(['push', 'pull', 'legs', 'aesthetic', 'cardio', 'cardio_optional', 'rest']);
+  const normalizeKey = (k) => {
+    if (VALID_KEYS.has(k)) return k;
+    if (k === 'cardio_optional' || k === 'cardio_light' || k === 'optional_cardio') return 'cardio_optional';
+    if (k.startsWith('cardio')) return 'cardio';
+    if (k.startsWith('rest') || k.includes('pause') || k.includes('recovery')) return 'rest';
+    if (k.startsWith('push')) return 'push';
+    if (k.startsWith('pull')) return 'pull';
+    if (k.startsWith('leg')) return 'legs';
+    if (k.startsWith('aesthetic') || k.startsWith('upper')) return 'aesthetic';
+    return 'rest';
+  };
+  const rawSchedule = Array.isArray(customPlan.schedule) && customPlan.schedule.length === 7
     ? customPlan.schedule
     : DEFAULT_SCHEDULE;
+  const schedule = rawSchedule.map(normalizeKey);
   return { plan, schedule };
 }
 
@@ -213,6 +228,7 @@ export default function App() {
   const [lastWeights, setLastWeights] = useState({});
   const [toast, setToast] = useState(null);
   const [combinedFlow, setCombinedFlow] = useState(false);
+  const [showCustomModal, setShowCustomModal] = useState(false);
   const [planConfig, setPlanConfig] = useState(buildPlanData(null)); // { plan, schedule }
   const PLAN = planConfig.plan;
   const DAY_MAP = planConfig.schedule;
@@ -302,6 +318,27 @@ export default function App() {
       console.error('Plan save error:', e?.message, '| code:', e?.code, '| details:', e?.details, '| hint:', e?.hint);
       showToast(`Fehler: ${msg}`, 'info');
     }
+  };
+
+  const handleLogCustom = async ({ name: workoutName, duration }) => {
+    try {
+      const row = await saveWorkout(user.id, {
+        date: new Date(),
+        planKey: 'custom',
+        planName: workoutName,
+        logs: [],
+        duration: duration * 60,
+        isCardio: false,
+        isMobility: false,
+        notes: '',
+        skippedExercises: [],
+      });
+      setHistory(prev => [rowToWorkout(row), ...prev]);
+      showToast(`${workoutName} eingetragen ✓`, 'check');
+    } catch (e) {
+      showToast('Fehler beim Speichern', 'info');
+    }
+    setShowCustomModal(false);
   };
 
   const today = new Date();
@@ -465,6 +502,13 @@ export default function App() {
             onStartCardio={() => setScreen('cardio')}
             onStartMobility={() => setScreen('mobility')}
             onStartCombined={() => { setCombinedFlow(true); setScreen('cardio'); }}
+            onLogCustom={() => setShowCustomModal(true)}
+          />
+        )}
+        {showCustomModal && (
+          <CustomWorkoutModal
+            onSave={handleLogCustom}
+            onClose={() => setShowCustomModal(false)}
           />
         )}
         {screen === 'workout' && activeWorkout && (
@@ -509,26 +553,26 @@ function NavBtn({ icon: Icon, label, active, onClick }) {
   );
 }
 
-function HomeScreen({ user, onLogout, onChangeAvatar, plan: PLAN, todayPlan, todayKey, todayName, history, dataLoading, onStart, onPickOther, onStartCardio, onStartMobility, onStartCombined }) {
+function HomeScreen({ user, onLogout, onChangeAvatar, plan: PLAN, todayPlan, todayKey, todayName, history, dataLoading, onStart, onPickOther, onStartCardio, onStartMobility, onStartCombined, onLogCustom }) {
   const isRest = todayKey === 'rest';
   const isCardio = todayKey === 'cardio';
+  const isCardioOptional = todayKey === 'cardio_optional';
+  const isAnyCardio = isCardio || isCardioOptional;
   const todayDateStr = new Date().toISOString().split('T')[0];
   const todayEntries = history.filter(h => h.dateOnly === todayDateStr);
   const cardioDoneToday = todayEntries.some(e => e.isCardio);
   const mobilityDoneToday = todayEntries.some(e => e.isMobility);
-  const cardioFullyDone = isCardio && cardioDoneToday && mobilityDoneToday;
-  const doneToday = isCardio ? cardioFullyDone : todayEntries.length > 0;
+  const cardioFullyDone = isAnyCardio && cardioDoneToday && mobilityDoneToday;
+  const doneToday = isAnyCardio ? cardioFullyDone : todayEntries.length > 0;
   const totalWorkouts = history.length;
   const lastWeek = history.filter(h => (Date.now() - new Date(h.date).getTime()) < 7*24*60*60*1000).length;
 
   // Decide what to do when user taps the START button
   const handleStart = () => {
-    if (isCardio) {
-      // Combined flow: cardio → mobility
+    if (isAnyCardio) {
       if (!cardioDoneToday) {
         onStartCombined();
       } else if (!mobilityDoneToday) {
-        // cardio done already, just do mobility
         onStartMobility();
       }
     } else {
@@ -567,11 +611,13 @@ function HomeScreen({ user, onLogout, onChangeAvatar, plan: PLAN, todayPlan, tod
         <div className="relative z-10">
           <div className="font-mono text-xs uppercase tracking-widest text-white/70 mb-2">Heutiges Training</div>
           <div className="font-display text-5xl text-white leading-none mb-4">{todayPlan.name.toUpperCase()}</div>
-          {!isRest && !isCardio && <div className="text-white/80 text-sm mb-6 font-mono">{todayPlan.exercises.length} Übungen · ca. 60–75 Min</div>}
+          {!isRest && !isAnyCardio && <div className="text-white/80 text-sm mb-6 font-mono">{todayPlan.exercises.length} Übungen · ca. 60–75 Min</div>}
           {isRest && <div className="text-white/90 text-sm mb-6">Heute ist Pausentag. Ruhe ist Teil des Plans – Cortisol runter, Muskeln wachsen lassen.</div>}
-          {isCardio && (
+          {isAnyCardio && (
             <div className="text-white/90 text-sm mb-6">
-              30–40 Min Zone-2 Cardio gefolgt von Mobility. Locker, du kannst noch reden.
+              {isCardioOptional
+                ? 'Cardio heute optional – wenn du Lust hast: 30 Min Zone-2 + Mobility.'
+                : '30–40 Min Zone-2 Cardio gefolgt von Mobility. Locker, du kannst noch reden.'}
               {cardioDoneToday && !mobilityDoneToday && (
                 <div className="mt-2 font-mono text-xs text-white/80">✓ Cardio erledigt – jetzt Mobility</div>
               )}
@@ -638,7 +684,7 @@ function HomeScreen({ user, onLogout, onChangeAvatar, plan: PLAN, todayPlan, tod
               <div>
                 <div className="font-display text-xl flex items-center gap-2">
                   CARDIO
-                  {isCardio && <span className="text-xs text-red-400 font-mono">(HEUTE)</span>}
+                  {isAnyCardio && <span className="text-xs text-red-400 font-mono">(HEUTE)</span>}
                 </div>
                 <div className="font-mono text-xs text-zinc-500">Zone-2 oder HIIT</div>
               </div>
@@ -659,9 +705,89 @@ function HomeScreen({ user, onLogout, onChangeAvatar, plan: PLAN, todayPlan, tod
             </div>
             <ChevronRight className="w-5 h-5 text-zinc-600" />
           </button>
+
+          {/* Freies Training */}
+          <button onClick={onLogCustom} className="w-full bg-zinc-900 border border-zinc-800 rounded-xl p-4 flex items-center justify-between">
+            <div className="flex items-center gap-3 text-left">
+              <div className="bg-zinc-950 rounded-lg p-2">
+                <Plus className="w-5 h-5 text-zinc-400" />
+              </div>
+              <div>
+                <div className="font-display text-xl">FREIES TRAINING</div>
+                <div className="font-mono text-xs text-zinc-500">Fußball, Schwimmen, etc.</div>
+              </div>
+            </div>
+            <ChevronRight className="w-5 h-5 text-zinc-600" />
+          </button>
         </div>
       </div>
 
+    </div>
+  );
+}
+
+function CustomWorkoutModal({ onSave, onClose }) {
+  const [workoutName, setWorkoutName] = useState('');
+  const [duration, setDuration] = useState('');
+  const [saving, setSaving] = useState(false);
+
+  const SUGGESTIONS = ['Fußball', 'Basketball', 'Schwimmen', 'Fahrrad', 'Joggen', 'Tennis', 'Kampfsport', 'Yoga'];
+
+  const handleSave = async () => {
+    if (!workoutName.trim()) return;
+    setSaving(true);
+    await onSave({ name: workoutName.trim(), duration: parseInt(duration) || 0 });
+    setSaving(false);
+  };
+
+  return (
+    <div className="fixed inset-0 bg-black/70 z-50 flex items-end" onClick={onClose}>
+      <div className="bg-zinc-900 w-full rounded-t-2xl p-6 pb-10" onClick={e => e.stopPropagation()}>
+        <div className="flex items-center justify-between mb-5">
+          <h2 className="font-display text-2xl text-zinc-100">FREIES TRAINING</h2>
+          <button onClick={onClose} className="text-zinc-500 hover:text-zinc-300"><X className="w-5 h-5" /></button>
+        </div>
+
+        <div className="mb-4">
+          <label className="font-mono text-xs text-zinc-500 uppercase tracking-widest mb-2 block">Was hast du gemacht?</label>
+          <input
+            type="text"
+            value={workoutName}
+            onChange={e => setWorkoutName(e.target.value)}
+            placeholder="z.B. Fußball"
+            autoFocus
+            className="w-full bg-zinc-950 border border-zinc-800 rounded-xl px-4 py-3 text-lg font-display text-zinc-100 focus:border-red-500 focus:outline-none"
+          />
+        </div>
+
+        <div className="flex flex-wrap gap-2 mb-5">
+          {SUGGESTIONS.map(s => (
+            <button key={s} onClick={() => setWorkoutName(s)}
+              className="bg-zinc-800 hover:bg-zinc-700 rounded-full px-3 py-1 font-mono text-xs text-zinc-300">
+              {s}
+            </button>
+          ))}
+        </div>
+
+        <div className="mb-6">
+          <label className="font-mono text-xs text-zinc-500 uppercase tracking-widest mb-2 block">Dauer (Minuten, optional)</label>
+          <input
+            type="number"
+            inputMode="numeric"
+            value={duration}
+            onChange={e => setDuration(e.target.value)}
+            placeholder="z.B. 60"
+            className="w-full bg-zinc-950 border border-zinc-800 rounded-xl px-4 py-3 text-lg font-display text-zinc-100 focus:border-red-500 focus:outline-none"
+          />
+        </div>
+
+        <button
+          onClick={handleSave}
+          disabled={!workoutName.trim() || saving}
+          className="w-full bg-red-600 hover:bg-red-700 disabled:bg-zinc-800 disabled:text-zinc-500 text-white font-display text-xl py-4 rounded-xl">
+          {saving ? 'SPEICHERN...' : 'EINTRAGEN'}
+        </button>
+      </div>
     </div>
   );
 }
@@ -1381,19 +1507,39 @@ function MobilityScreen({ onFinish, onCancel, user, combinedFlow }) {
 }
 
 // ===== ONBOARDING =====
+const ONBOARDING_KEY = 'onboarding_progress';
+
+function saveOnboardingProgress(data) {
+  try { localStorage.setItem(ONBOARDING_KEY, JSON.stringify(data)); } catch {}
+}
+function loadOnboardingProgress() {
+  try { return JSON.parse(localStorage.getItem(ONBOARDING_KEY)) || {}; } catch { return {}; }
+}
+function clearOnboardingProgress() {
+  try { localStorage.removeItem(ONBOARDING_KEY); } catch {}
+}
+
 function OnboardingScreen({ onComplete }) {
-  const [step, setStep] = useState('name'); // 'name' | 'avatar' | 'plan' | 'plan-text' | 'plan-coach' | 'plan-review' | 'confirm'
-  const [name, setName] = useState('');
+  const saved = loadOnboardingProgress();
+  const [step, setStepRaw] = useState(saved.step || 'name');
+  const [name, setNameRaw] = useState(saved.name || '');
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
   const [foundUser, setFoundUser] = useState(null);
   const [lastWorkout, setLastWorkout] = useState(null);
   const [avatarFile, setAvatarFile] = useState(null);
   const [avatarPreview, setAvatarPreview] = useState(null);
-  const [planText, setPlanText] = useState('');
-  const [parsedPlan, setParsedPlan] = useState(null);
-  const [coachMessages, setCoachMessages] = useState([]);
+  const [planText, setPlanTextRaw] = useState(saved.planText || '');
+  const [parsedPlan, setParsedPlanRaw] = useState(saved.parsedPlan || null);
+  const [coachMessages, setCoachMessagesRaw] = useState(saved.coachMessages || []);
   const [coachInput, setCoachInput] = useState('');
+
+  // Wrap setters to also persist
+  const setStep = (v) => { setStepRaw(v); saveOnboardingProgress({ ...loadOnboardingProgress(), step: v }); };
+  const setName = (v) => { setNameRaw(v); saveOnboardingProgress({ ...loadOnboardingProgress(), name: v }); };
+  const setPlanText = (v) => { setPlanTextRaw(v); saveOnboardingProgress({ ...loadOnboardingProgress(), planText: v }); };
+  const setParsedPlan = (v) => { setParsedPlanRaw(v); saveOnboardingProgress({ ...loadOnboardingProgress(), parsedPlan: v }); };
+  const setCoachMessages = (v) => { setCoachMessagesRaw(v); saveOnboardingProgress({ ...loadOnboardingProgress(), coachMessages: v }); };
 
   const handleNameSubmit = async () => {
     const trimmed = name.trim();
@@ -1463,6 +1609,7 @@ function OnboardingScreen({ onComplete }) {
         }
       }
 
+      clearOnboardingProgress();
       onComplete(newUser);
     } catch (e) {
       console.error(e);
@@ -1529,7 +1676,7 @@ function OnboardingScreen({ onComplete }) {
     }
   }, [step]);
 
-  const confirmExisting = () => onComplete(foundUser);
+  const confirmExisting = () => { clearOnboardingProgress(); onComplete(foundUser); };
   const reject = () => {
     setFoundUser(null);
     setLastWorkout(null);
@@ -2435,7 +2582,21 @@ function CoachScreen({ user, currentPlan, currentSchedule, onPlanSaved, showToas
   const [busy, setBusy] = useState(false);
   const [proposedPlan, setProposedPlan] = useState(null);
   const [reviewOpen, setReviewOpen] = useState(false);
+  const [keyboardOffset, setKeyboardOffset] = useState(0);
   const scrollRef = useRef(null);
+
+  // Keyboard avoiding via visualViewport API
+  useEffect(() => {
+    const vv = window.visualViewport;
+    if (!vv) return;
+    const update = () => {
+      const offset = Math.max(0, window.innerHeight - vv.height - vv.offsetTop);
+      setKeyboardOffset(offset);
+    };
+    vv.addEventListener('resize', update);
+    vv.addEventListener('scroll', update);
+    return () => { vv.removeEventListener('resize', update); vv.removeEventListener('scroll', update); };
+  }, []);
 
   // Persist messages to localStorage
   useEffect(() => {
@@ -2499,9 +2660,13 @@ function CoachScreen({ user, currentPlan, currentSchedule, onPlanSaved, showToas
     setBusy(false);
   };
 
+  const bottomStyle = keyboardOffset > 0
+    ? { bottom: `${keyboardOffset}px` }
+    : { bottom: 'calc(4rem + env(safe-area-inset-bottom, 0px))' };
+
   if (reviewOpen && proposedPlan) {
     return (
-      <div className="fixed top-0 left-0 right-0 bottom-16 bg-zinc-950 z-10 overflow-y-auto safe-top">
+      <div className="fixed top-0 left-0 right-0 bg-zinc-950 z-10 overflow-y-auto safe-top" style={bottomStyle}>
         <div className="px-5 pt-6 pb-8 max-w-2xl mx-auto">
           <PlanReview
             plan={proposedPlan}
@@ -2515,7 +2680,7 @@ function CoachScreen({ user, currentPlan, currentSchedule, onPlanSaved, showToas
   }
 
   return (
-    <div className="fixed top-0 left-0 right-0 bottom-16 bg-zinc-950 z-10 flex flex-col safe-top no-scrollbar">
+    <div className="fixed top-0 left-0 right-0 bg-zinc-950 z-10 flex flex-col safe-top no-scrollbar" style={bottomStyle}>
       <div className="px-5 pt-6 pb-3 flex items-start justify-between border-b border-zinc-900 flex-shrink-0">
         <div>
           <div className="font-mono text-xs text-zinc-500 uppercase tracking-widest mb-1">Dein</div>

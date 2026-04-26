@@ -23,7 +23,7 @@ PLAN-FORMAT (in JSON-Codeblock am Ende der Nachricht):
 }
 
 REGELN:
-- "schedule": 7 Einträge für So, Mo, Di, Mi, Do, Fr, Sa
+- "schedule": 7 Einträge für So, Mo, Di, Mi, Do, Fr, Sa – NUR diese exakten Keys erlaubt: "push", "pull", "legs", "aesthetic", "cardio", "rest" – NIEMALS andere Werte wie "cardio_optional", "rest_day" o.ä.
 - restSec: 60–90 für Isolation, 120–180 für Grundübungen
 - Antworte chat-freundlich, nicht wie ein Wall-of-Text
 - Wenn du noch Infos brauchst: KEIN JSON ausgeben, nur weiterfragen
