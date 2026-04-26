@@ -56,6 +56,24 @@
       /* iOS safe area */
       .safe-top { padding-top: env(safe-area-inset-top); }
       .safe-bottom { padding-bottom: env(safe-area-inset-bottom); }
+      /* Nav & coach layout */
+      :root { --nav-h: calc(3.75rem + env(safe-area-inset-bottom, 0px)); }
+      .app-nav {
+        position: fixed; bottom: 0; left: 0; right: 0; z-index: 20;
+        background: rgba(24,24,27,0.97);
+        border-top: 1px solid #27272a;
+        backdrop-filter: blur(12px);
+        -webkit-backdrop-filter: blur(12px);
+        padding-bottom: env(safe-area-inset-bottom, 0px);
+      }
+      .coach-screen {
+        position: fixed; top: 0; left: 0; right: 0;
+        bottom: var(--nav-h);
+        display: flex; flex-direction: column;
+        overflow: hidden;
+        background: #09090b;
+        z-index: 10;
+      }
     </style>
   </head>
   <body>

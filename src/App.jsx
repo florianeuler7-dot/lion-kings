@@ -530,7 +530,7 @@ export default function App() {
       </div>
 
       {screen !== 'workout' && screen !== 'cardio' && screen !== 'mobility' && (
-        <nav className="fixed bottom-0 left-0 right-0 bg-zinc-900/95 backdrop-blur border-t border-zinc-800 z-20 safe-bottom">
+        <nav className="app-nav">
           <div className="max-w-2xl mx-auto flex">
             <NavBtn icon={Home} label="Heute" active={screen==='home'} onClick={() => setScreen('home')} />
             <NavBtn icon={Users} label="Löwen" active={screen==='dashboard'} onClick={() => setScreen('dashboard')} />
@@ -1954,7 +1954,6 @@ function DashboardScreen({ user }) {
   const [feed, setFeed] = useState([]);
   const [reactions, setReactions] = useState({});
   const [allWorkoutsByUser, setAllWorkoutsByUser] = useState({});
-  const [stepsByUser, setStepsByUser] = useState({});
   const [loading, setLoading] = useState(true);
   const [tab, setTab] = useState('feed');
 
@@ -1962,20 +1961,14 @@ function DashboardScreen({ user }) {
 
   const loadAll = async () => {
     try {
-      const [allUsers, statuses, feedRows, todaySteps] = await Promise.all([
+      const [allUsers, statuses, feedRows] = await Promise.all([
         getAllUsers(),
         getAllLiveStatuses(),
         getActivityFeed(40),
-        getAllStepsForDate(),
       ]);
       setUsers(allUsers);
       setLiveStatuses(statuses);
       setFeed(feedRows);
-
-      // Map steps by user_id
-      const stepsMap = {};
-      todaySteps.forEach(s => { stepsMap[s.user_id] = s.steps; });
-      setStepsByUser(stepsMap);
 
       const ids = feedRows.map(w => w.id);
       const reactionsMap = await getReactionsForWorkouts(ids);
@@ -2002,7 +1995,6 @@ function DashboardScreen({ user }) {
       .on('postgres_changes', { event: '*', schema: 'public', table: 'live_status' }, () => loadAll())
       .on('postgres_changes', { event: '*', schema: 'public', table: 'workouts' }, () => loadAll())
       .on('postgres_changes', { event: '*', schema: 'public', table: 'reactions' }, () => loadAll())
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'daily_steps' }, () => loadAll())
       .subscribe();
     return () => { supabase.removeChannel(channel); };
   }, []);
@@ -2024,13 +2016,19 @@ function DashboardScreen({ user }) {
     }
   };
 
+  const [lbFilter, setLbFilter] = useState('week');
+
   const leaderboard = users.map(u => {
     const userWorkouts = allWorkoutsByUser[u.id] || [];
+    const now = Date.now();
+    const cutoff = lbFilter === 'week'
+      ? now - 7 * 24 * 60 * 60 * 1000
+      : now - 30 * 24 * 60 * 60 * 1000;
+    const filtered = userWorkouts.filter(w => new Date(w.created_at || w.date).getTime() > cutoff);
     const stats = computeUserStats(userWorkouts);
     const status = liveStatuses.find(s => s.user_id === u.id);
-    const steps = stepsByUser[u.id] || 0;
-    return { user: u, stats, status, steps };
-  }).sort((a, b) => b.stats.thisWeek - a.stats.thisWeek);
+    return { user: u, stats, count: filtered.length };
+  }).sort((a, b) => b.count - a.count);
 
   const formatTime = (iso) => {
     const d = new Date(iso);
@@ -2095,47 +2093,56 @@ function DashboardScreen({ user }) {
       </div>
 
       {tab === 'leaderboard' && (
-        <div className="space-y-2">
-          <div className="font-mono text-xs text-zinc-500 uppercase tracking-widest mb-3">Diese Woche</div>
-          {leaderboard.map((row, idx) => {
-            const isMe = row.user.id === user.id;
-            const medals = ['🥇', '🥈', '🥉'];
-            const stepsReached = row.steps >= 10000;
-            return (
-              <div key={row.user.id}
-                className={`rounded-xl p-4 flex items-center gap-3 border ${
-                  isMe ? 'bg-red-950/30 border-red-800/50' : 'bg-zinc-900 border-zinc-800'
-                }`}>
-                <div className="font-display text-2xl w-8 text-center">
-                  {medals[idx] || <span className="text-zinc-600 text-lg">#{idx + 1}</span>}
-                </div>
-                <Avatar user={row.user} size="md" className="flex-shrink-0" />
-                <div className="flex-1 min-w-0">
-                  <div className="font-display text-lg text-zinc-100 truncate">
-                    {row.user.name.toUpperCase()}
-                    {isMe && <span className="ml-2 text-xs text-red-400 font-mono">(DU)</span>}
+        <div>
+          <div className="flex gap-2 mb-4">
+            <button onClick={() => setLbFilter('week')}
+              className={`flex-1 py-2 rounded-lg font-mono text-xs transition-colors ${
+                lbFilter === 'week' ? 'bg-zinc-700 text-zinc-100' : 'bg-zinc-900 text-zinc-500'
+              }`}>
+              WOCHE
+            </button>
+            <button onClick={() => setLbFilter('month')}
+              className={`flex-1 py-2 rounded-lg font-mono text-xs transition-colors ${
+                lbFilter === 'month' ? 'bg-zinc-700 text-zinc-100' : 'bg-zinc-900 text-zinc-500'
+              }`}>
+              MONAT
+            </button>
+          </div>
+          <div className="space-y-2">
+            {leaderboard.map((row, idx) => {
+              const isMe = row.user.id === user.id;
+              const medals = ['🥇', '🥈', '🥉'];
+              return (
+                <div key={row.user.id}
+                  className={`rounded-xl p-4 flex items-center gap-3 border ${
+                    isMe ? 'bg-red-950/30 border-red-800/50' : 'bg-zinc-900 border-zinc-800'
+                  }`}>
+                  <div className="font-display text-2xl w-8 text-center">
+                    {medals[idx] || <span className="text-zinc-600 text-lg">#{idx + 1}</span>}
                   </div>
-                  <div className="font-mono text-xs text-zinc-500 flex gap-3 flex-wrap">
+                  <Avatar user={row.user} size="md" className="flex-shrink-0" />
+                  <div className="flex-1 min-w-0">
+                    <div className="font-display text-lg text-zinc-100 truncate">
+                      {row.user.name.toUpperCase()}
+                      {isMe && <span className="ml-2 text-xs text-red-400 font-mono">(DU)</span>}
+                    </div>
                     {row.stats.streak > 0 && (
-                      <span className="flex items-center gap-1">
-                        <Flame className="w-3 h-3 text-orange-500" /> {row.stats.streak}
-                      </span>
+                      <div className="font-mono text-xs text-zinc-500 flex items-center gap-1">
+                        <Flame className="w-3 h-3 text-orange-500" /> {row.stats.streak} Tage Streak
+                      </div>
                     )}
-                    <span className={`flex items-center gap-1 ${stepsReached ? 'text-green-500' : 'text-blue-400'}`}>
-                      <Footprints className="w-3 h-3" /> {row.steps.toLocaleString('de-DE')}
-                    </span>
+                  </div>
+                  <div className="text-right flex-shrink-0">
+                    <div className="font-display text-2xl text-red-500">{row.count}</div>
+                    <div className="font-mono text-xs text-zinc-500">{lbFilter === 'week' ? 'Woche' : 'Monat'}</div>
                   </div>
                 </div>
-                <div className="text-right flex-shrink-0">
-                  <div className="font-display text-2xl text-red-500">{row.stats.thisWeek}</div>
-                  <div className="font-mono text-xs text-zinc-500">Woche</div>
-                </div>
-              </div>
-            );
-          })}
-          {leaderboard.length === 0 && (
-            <div className="text-center text-zinc-500 py-8 font-mono text-sm">Noch keine Daten</div>
-          )}
+              );
+            })}
+            {leaderboard.length === 0 && (
+              <div className="text-center text-zinc-500 py-8 font-mono text-sm">Noch keine Daten</div>
+            )}
+          </div>
         </div>
       )}
 
@@ -2660,13 +2667,11 @@ function CoachScreen({ user, currentPlan, currentSchedule, onPlanSaved, showToas
     setBusy(false);
   };
 
-  const bottomStyle = keyboardOffset > 0
-    ? { bottom: `${keyboardOffset}px` }
-    : { bottom: 'calc(4rem + env(safe-area-inset-bottom, 0px))' };
+  const kbStyle = keyboardOffset > 0 ? { bottom: `${keyboardOffset}px` } : {};
 
   if (reviewOpen && proposedPlan) {
     return (
-      <div className="fixed top-0 left-0 right-0 bg-zinc-950 z-10 overflow-y-auto safe-top" style={bottomStyle}>
+      <div className="coach-screen safe-top overflow-y-auto" style={kbStyle}>
         <div className="px-5 pt-6 pb-8 max-w-2xl mx-auto">
           <PlanReview
             plan={proposedPlan}
@@ -2680,7 +2685,7 @@ function CoachScreen({ user, currentPlan, currentSchedule, onPlanSaved, showToas
   }
 
   return (
-    <div className="fixed top-0 left-0 right-0 bg-zinc-950 z-10 flex flex-col safe-top no-scrollbar" style={bottomStyle}>
+    <div className="coach-screen safe-top" style={kbStyle}>
       <div className="px-5 pt-6 pb-3 flex items-start justify-between border-b border-zinc-900 flex-shrink-0">
         <div>
           <div className="font-mono text-xs text-zinc-500 uppercase tracking-widest mb-1">Dein</div>
