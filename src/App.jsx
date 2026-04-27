@@ -600,8 +600,8 @@ function NavBtn({ icon: Icon, label, active, onClick }) {
       className={`flex-1 flex flex-col items-center justify-center transition-colors ${active ? 'text-red-500' : 'text-zinc-400'}`}
       style={{ gap: 6 }}
     >
-      <Icon style={{ width: 32, height: 32 }} />
-      <span style={{ fontSize: 11, lineHeight: 1 }} className="font-mono">{label}</span>
+      <Icon style={{ width: 25, height: 25 }} />
+      <span style={{ fontSize: 10, lineHeight: 1 }} className="font-mono">{label}</span>
     </button>
   );
 }
