@@ -2,7 +2,7 @@
 <html lang="de">
   <head>
     <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover, user-scalable=no" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, user-scalable=no" />
     <meta name="theme-color" content="#0a0a0a" />
     <meta name="description" content="LION KINGS – Trainings-Agent für die Crew" />
 
@@ -11,9 +11,10 @@
     <link rel="icon" type="image/png" sizes="192x192" href="/icon-192.png" />
     <link rel="icon" type="image/png" sizes="512x512" href="/icon-512.png" />
 
-    <!-- iOS -->
+    <!-- iOS standalone / home screen -->
     <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
     <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="mobile-web-app-capable" content="yes" />
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
     <meta name="apple-mobile-web-app-title" content="LION KINGS" />
 
@@ -28,8 +29,18 @@
     <title>LION KINGS</title>
 
     <style>
-      html, body, #root { height: 100%; background: #0a0a0a; overflow-x: hidden; }
-      html { background: #18181b; }
+      html {
+        height: -webkit-fill-available;
+        background: #18181b;
+        overflow-x: hidden;
+      }
+      body, #root {
+        min-height: 100vh;
+        min-height: -webkit-fill-available;
+        min-height: 100dvh;
+        background: #0a0a0a;
+        overflow-x: hidden;
+      }
       body {
         font-family: 'DM Sans', sans-serif;
         color: #f5f5f5;
@@ -54,16 +65,27 @@
       * { scrollbar-width: none; -ms-overflow-style: none; }
       .no-scrollbar::-webkit-scrollbar { display: none; }
       .no-scrollbar { scrollbar-width: none; -ms-overflow-style: none; }
-      /* iOS safe area */
-      .safe-top { padding-top: env(safe-area-inset-top); }
-      .safe-bottom { padding-bottom: env(safe-area-inset-bottom); }
-      /* Nav & coach layout */
-      :root { --nav-h: calc(4.25rem + env(safe-area-inset-bottom, 0px)); }
+      /* iOS safe area utilities */
+      .safe-top { padding-top: env(safe-area-inset-top, 0px); }
+      .safe-bottom { padding-bottom: env(safe-area-inset-bottom, 0px); }
+
+      /* Nav: 72px button area + safe-area inset */
+      :root { --nav-btn-h: 72px; --nav-h: calc(var(--nav-btn-h) + env(safe-area-inset-bottom, 0px)); }
+
       .app-nav {
-        position: fixed; bottom: 0; left: 0; right: 0; z-index: 20;
+        position: fixed;
+        bottom: 0; left: 0; right: 0;
+        z-index: 20;
         background: #18181b;
         border-top: 1px solid #27272a;
         padding-bottom: env(safe-area-inset-bottom, 0px);
+        padding-left: env(safe-area-inset-left, 0px);
+        padding-right: env(safe-area-inset-right, 0px);
+      }
+      .app-nav-inner {
+        height: var(--nav-btn-h);
+        display: flex;
+        align-items: stretch; /* buttons fill full height */
       }
       .coach-screen {
         position: fixed; top: 0; left: 0; right: 0;

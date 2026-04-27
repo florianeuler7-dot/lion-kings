@@ -580,7 +580,7 @@ export default function App() {
 
       {screen !== 'workout' && screen !== 'cardio' && screen !== 'mobility' && (
         <nav className="app-nav">
-          <div className="max-w-2xl mx-auto flex">
+          <div className="app-nav-inner max-w-2xl mx-auto w-full">
             <NavBtn icon={Home} label="Heute" active={screen==='home'} onClick={() => setScreen('home')} />
             <NavBtn icon={Users} label="Löwen" active={screen==='dashboard'} onClick={() => setScreen('dashboard')} />
             <NavBtn icon={Sparkles} label="Coach" active={screen==='coach'} onClick={() => setScreen('coach')} />
@@ -589,17 +589,19 @@ export default function App() {
           </div>
         </nav>
       )}
-      {/* fills the physical screen bottom (home indicator area) with nav color */}
-      <div style={{ position: 'fixed', bottom: 0, left: 0, right: 0, height: 'env(safe-area-inset-bottom, 0px)', background: '#18181b', zIndex: 19 }} />
     </div>
   );
 }
 
 function NavBtn({ icon: Icon, label, active, onClick }) {
   return (
-    <button onClick={onClick} className={`flex-1 py-4 flex flex-col items-center gap-1.5 transition-colors ${active ? 'text-red-500' : 'text-zinc-400'}`}>
-      <Icon className="w-6 h-6" />
-      <span className="text-[11px] font-mono leading-none">{label}</span>
+    <button
+      onClick={onClick}
+      className={`flex-1 flex flex-col items-center justify-center transition-colors ${active ? 'text-red-500' : 'text-zinc-400'}`}
+      style={{ gap: 6 }}
+    >
+      <Icon style={{ width: 32, height: 32 }} />
+      <span style={{ fontSize: 11, lineHeight: 1 }} className="font-mono">{label}</span>
     </button>
   );
 }
