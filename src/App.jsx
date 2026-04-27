@@ -2,39 +2,45 @@ import React, { useState, useEffect, useRef } from 'react';
 import { Dumbbell, Play, Pause, SkipForward, Check, Calendar, History, Home, X, Droplet, ChevronRight, Clock, Flame, TrendingUp, Coffee, Timer, Heart, Activity, Sparkles, User, LogOut, AlertCircle, Users, Trophy, Zap, Plus, Minus, Camera, Upload, StickyNote, Forward, MessageCircle, Send } from 'lucide-react';
 import { findUserByName, getUserById, createUser, getLastWorkoutDate, getUserWorkouts, saveWorkout, rowToWorkout, computeLastWeights, getAllUsers, getActivityFeed, getAllLiveStatuses, setLiveStatus, clearLiveStatus, getReactionsForWorkouts, toggleReaction, getCommentsForWorkouts, addComment, computeUserStats, supabase, uploadAvatar, updateUserAvatar, saveUserPlan, getActivePlanForUser, parsePlanText, coachChat } from './supabase';
 
+// ===== HELPERS =====
+// Legacy workouts stored duration in seconds; newer ones in minutes.
+// Heuristic: values > 300 are almost certainly seconds (5h+ workout = implausible).
+function formatDuration(raw) {
+  if (!raw || raw === 0) return null;
+  const mins = raw > 300 ? Math.round(raw / 60) : raw;
+  if (mins < 60) return `${mins} Min`;
+  const h = Math.floor(mins / 60);
+  const m = mins % 60;
+  return m > 0 ? `${h}h ${m} Min` : `${h}h`;
+}
+
 // ===== MOTIVATION QUOTES =====
 const MOTIVATION_QUOTES = [
-  'The mind always fails first, not the body. The secret is to make your mind work for you, not against you. — Arnold',
-  'Strength does not come from winning. Your struggles develop your strengths. — Arnold',
-  'The last three or four reps is what makes the muscle grow. — Arnold',
-  'Pain is temporary. Quitting lasts forever. — Arnold',
-  'You can have results or excuses. Not both. — Arnold',
-  'Of course it\'s heavy. That\'s why they call it weight. — Arnold',
-  'The worst thing I can be is the same as everybody else. — Arnold',
-  'Champions aren\'t made in gyms. Champions are made from something deep inside. — Arnold',
-  'Wer nicht trainiert, hat keine Entschuldigungen – nur Ergebnisse, die fehlen. — Markus Rühl',
-  'Ich hab\' nie gezählt, wie viel ich hebe. Ich hab\' gezählt, wie oft ich aufgestanden bin. — Markus Rühl',
-  'Schmerz ist Schwäche, die den Körper verlässt. — Markus Rühl',
-  'Das Eisen lügt nie. Menschen lügen, Zahlen lügen – aber das Eisen nicht. — Markus Rühl',
-  'Wenn\'s brennt, wird\'s gut. — Markus Rühl',
-  'Der Körper hat immer mehr drauf als der Kopf glaubt. — Markus Rühl',
-  'Aufhören ist keine Option. Pause ja, aufhören nein. — Markus Rühl',
-  'Ich bin nicht hier um gut auszusehen. Ich bin hier um stärker zu werden. — Markus Rühl',
-  'Milk is for babies. When you grow up you have to drink beer. — Arnold',
-  'Nobody ever got big by watching somebody else train. — Arnold',
-  'Du willst aufhören? Dann mach noch drei. — Markus Rühl',
-  'Hustle beats talent when talent doesn\'t hustle. — Arnold',
-  'The body achieves what the mind believes. — Arnold',
-  'Keine Ausreden. Kein Mitleid. Einfach machen. — Markus Rühl',
-  'I\'ll be back. And so will you – after every rest day. — Arnold',
-  'Wer Muskeln will, muss leiden wollen. Klingt hart, ist aber so. — Markus Rühl',
-  'Ein schlechtes Training ist besser als kein Training. — Markus Rühl',
-  'Eat, sleep, train, repeat – und irgendwann passt nix mehr. — Markus Rühl',
-  'Failure is not an option. Everyone has to succeed. — Arnold',
-  'You can\'t climb the ladder of success with your hands in your pockets. — Arnold',
-  'Der einzige schlechte Satz im Training ist der, den du nicht gemacht hast. — Markus Rühl',
-  'Help others and give something back. — Arnold',
-  'Shut up and train. — Markus Rühl',
+  { text: 'Wer nicht trainiert, hat keine Entschuldigungen – nur Ergebnisse, die fehlen.', author: 'Markus Rühl' },
+  { text: 'Ich hab\' nie gezählt, wie viel ich hebe. Ich hab\' gezählt, wie oft ich aufgestanden bin.', author: 'Markus Rühl' },
+  { text: 'Das Eisen lügt nie. Menschen lügen, Zahlen lügen – aber das Eisen nicht.', author: 'Markus Rühl' },
+  { text: 'Wenn\'s brennt, wird\'s gut.', author: 'Markus Rühl' },
+  { text: 'Der Körper hat immer mehr drauf als der Kopf glaubt.', author: 'Markus Rühl' },
+  { text: 'Aufhören ist keine Option. Pause ja, aufhören nein.', author: 'Markus Rühl' },
+  { text: 'Ich bin nicht hier um gut auszusehen. Ich bin hier um stärker zu werden.', author: 'Markus Rühl' },
+  { text: 'Du willst aufhören? Dann mach noch drei.', author: 'Markus Rühl' },
+  { text: 'Keine Ausreden. Kein Mitleid. Einfach machen.', author: 'Markus Rühl' },
+  { text: 'Wer Muskeln will, muss leiden wollen. Klingt hart, ist aber so.', author: 'Markus Rühl' },
+  { text: 'Ein schlechtes Training ist besser als kein Training.', author: 'Markus Rühl' },
+  { text: 'Eat, sleep, train, repeat – und irgendwann passt nix mehr.', author: 'Markus Rühl' },
+  { text: 'Der einzige schlechte Satz im Training ist der, den du nicht gemacht hast.', author: 'Markus Rühl' },
+  { text: 'Shut up and train.', author: 'Markus Rühl' },
+  { text: 'Schmerz ist temporär. Stolz ist für immer.', author: 'Markus Rühl' },
+  { text: 'Niemand wird groß durch zuschauen. Du musst selbst ran.', author: 'Markus Rühl' },
+  { text: 'Im Training gibt\'s kein Morgen. Nur jetzt und dieser Satz.', author: 'Markus Rühl' },
+  { text: 'Wer aufhört, besser werden zu wollen, hört auf, gut zu sein.', author: 'Markus Rühl' },
+  { text: 'Das Gewicht weiß nicht, ob du müde bist. Also interessiert\'s mich auch nicht.', author: 'Markus Rühl' },
+  { text: 'Nicht das Gewicht macht dich groß – die Wiederholungen, die wehtun.', author: 'Markus Rühl' },
+  { text: 'The last three or four reps is what makes the muscle grow.', author: 'Arnold Schwarzenegger' },
+  { text: 'Of course it\'s heavy. That\'s why they call it weight.', author: 'Arnold Schwarzenegger' },
+  { text: 'You can have results or excuses. Not both.', author: 'Arnold Schwarzenegger' },
+  { text: 'Champions aren\'t made in gyms. Champions are made from something deep inside.', author: 'Arnold Schwarzenegger' },
+  { text: 'The mind always fails first, not the body.', author: 'Arnold Schwarzenegger' },
 ];
 
 // ===== TRAINING PLAN =====
@@ -264,6 +270,7 @@ export default function App() {
   const [toast, setToast] = useState(null);
   const [combinedFlow, setCombinedFlow] = useState(false);
   const [showCustomModal, setShowCustomModal] = useState(false);
+  const [workoutComplete, setWorkoutComplete] = useState(null); // { planName, duration }
   const [planConfig, setPlanConfig] = useState(buildPlanData(null)); // { plan, schedule }
   const PLAN = planConfig.plan;
   const DAY_MAP = planConfig.schedule;
@@ -475,7 +482,7 @@ export default function App() {
       clearLiveStatus(user.id);
       setActiveWorkout(null);
       setScreen('home');
-      showToast('Training abgeschlossen 💪', 'check');
+      setWorkoutComplete({ planName: activeWorkout.plan.name, duration: Math.floor((Date.now() - activeWorkout.startTime) / 60000) });
     } catch (e) {}
   };
 
@@ -519,6 +526,13 @@ export default function App() {
           {toast.icon === 'info' && <Flame className="w-5 h-5 text-red-500" />}
           <span className="font-mono text-sm">{toast.msg}</span>
         </div>
+      )}
+
+      {workoutComplete && (
+        <WorkoutCompleteModal
+          data={workoutComplete}
+          onClose={() => setWorkoutComplete(null)}
+        />
       )}
 
       <div className="max-w-2xl mx-auto px-4 pb-24 relative z-10">
@@ -583,10 +597,37 @@ export default function App() {
 
 function NavBtn({ icon: Icon, label, active, onClick }) {
   return (
-    <button onClick={onClick} className={`flex-1 py-3 flex flex-col items-center gap-1 transition-colors ${active ? 'text-red-500' : 'text-zinc-500'}`}>
-      <Icon className="w-5 h-5" />
-      <span className="text-xs font-mono">{label}</span>
+    <button onClick={onClick} className={`flex-1 py-4 flex flex-col items-center gap-1.5 transition-colors ${active ? 'text-red-500' : 'text-zinc-400'}`}>
+      <Icon className="w-6 h-6" />
+      <span className="text-[11px] font-mono leading-none">{label}</span>
     </button>
+  );
+}
+
+function WorkoutCompleteModal({ data, onClose }) {
+  const q = MOTIVATION_QUOTES.filter(q => q.author === 'Markus Rühl')[new Date().getDate() % MOTIVATION_QUOTES.filter(q => q.author === 'Markus Rühl').length];
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center px-6" style={{ background: 'rgba(0,0,0,0.85)' }}>
+      <div className="bg-zinc-900 border border-zinc-700 rounded-2xl p-8 w-full max-w-sm text-center shadow-2xl">
+        <div className="w-16 h-16 rounded-full bg-green-500/10 border border-green-500/30 flex items-center justify-center mx-auto mb-5">
+          <svg className="w-8 h-8 text-green-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
+            <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
+          </svg>
+        </div>
+        <div className="font-display text-3xl text-white mb-1">TRAINING FERTIG</div>
+        <div className="font-display text-lg text-red-500 mb-1">{data.planName.toUpperCase()}</div>
+        {formatDuration(data.duration) && (
+          <div className="font-mono text-sm text-zinc-400 mb-6">{formatDuration(data.duration)}</div>
+        )}
+        <div className="border-t border-zinc-800 pt-5 mb-6">
+          <div className="text-zinc-300 text-sm font-mono italic leading-snug">„{q.text}"</div>
+          <div className="text-zinc-500 text-xs font-mono mt-2">— {q.author}</div>
+        </div>
+        <button onClick={onClose} className="w-full bg-red-600 text-white font-display text-xl py-4 rounded-xl">
+          WEITER
+        </button>
+      </div>
+    </div>
   );
 }
 
@@ -650,7 +691,12 @@ function HomeScreen({ user, onLogout, onChangeAvatar, plan: PLAN, todayPlan, tod
         <div className="relative z-10">
           <div className="font-mono text-xs uppercase tracking-widest text-white/70 mb-2">Heutiges Training</div>
           <div className="font-display text-5xl text-white leading-none mb-3">{todayPlan.name.toUpperCase()}</div>
-          <div className="text-white/75 text-xs font-mono italic mb-4 leading-snug">&ldquo;{MOTIVATION_QUOTES[new Date().getDate() % MOTIVATION_QUOTES.length]}&rdquo;</div>
+          {(() => { const q = MOTIVATION_QUOTES[new Date().getDate() % MOTIVATION_QUOTES.length]; return (
+            <div className="mb-4 leading-snug">
+              <div className="text-white/70 text-xs font-mono italic">„{q.text}"</div>
+              <div className="text-white/40 text-xs font-mono mt-0.5">— {q.author}</div>
+            </div>
+          ); })()}
           {!isRest && !isAnyCardio && <div className="text-white/80 text-sm mb-6 font-mono">{todayPlan.exercises.length} Übungen · ca. 60–75 Min</div>}
           {isRest && <div className="text-white/90 text-sm mb-6">Heute ist Pausentag. Ruhe ist Teil des Plans – Cortisol runter, Muskeln wachsen lassen.</div>}
           {isAnyCardio && (
@@ -1119,20 +1165,20 @@ function HistoryScreen({ history }) {
       <div className="space-y-3">
         {entries.map((e, i) => (
           <div key={i} className="bg-zinc-900 rounded-xl p-5 border border-zinc-800">
-            <div className="flex items-baseline justify-between mb-3">
-              <div>
-                <div className="font-display text-2xl">{e.planName.toUpperCase()}</div>
+            <div className="flex items-start justify-between mb-3 gap-3">
+              <div className="flex-1 min-w-0">
+                <div className="font-display text-2xl leading-tight">{e.planName.toUpperCase()}</div>
                 <div className="font-mono text-xs text-zinc-500">{new Date(e.date).toLocaleDateString('de-DE', { weekday: 'long', day: '2-digit', month: 'long' })}</div>
               </div>
-              <div className="text-right">
-                <div className="font-display text-xl text-red-500">
-                  {e.duration > 0 ? `${Math.round(e.duration / 60)} Min` : '—'}
+              {formatDuration(e.duration) && (
+                <div className="text-right shrink-0">
+                  <div className="font-display text-xl text-red-500 leading-tight">{formatDuration(e.duration)}</div>
                 </div>
-              </div>
+              )}
             </div>
             {e.isCardio ? (
               <div className="flex items-center gap-2 text-sm font-mono text-zinc-400 pt-2 border-t border-zinc-800/50">
-                <Heart className="w-4 h-4 text-red-500" /> {e.duration} Minuten Cardio absolviert
+                <Heart className="w-4 h-4 text-red-500" /> {formatDuration(e.duration) || '—'} Cardio absolviert
               </div>
             ) : e.isMobility ? (
               <div className="flex items-center gap-2 text-sm font-mono text-zinc-400 pt-2 border-t border-zinc-800/50">

@@ -122,8 +122,8 @@ export async function saveWorkout(userId, workout) {
       is_cardio: !!workout.isCardio,
       is_mobility: !!workout.isMobility,
       focus: workout.focus || null,
-      completed: workout.completed || null,
-      total: workout.total || null,
+      completed: workout.completed ?? null,
+      total: workout.total ?? null,
       notes: workout.notes || null,
       skipped_exercises: workout.skippedExercises || [],
     })
