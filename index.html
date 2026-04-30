@@ -113,6 +113,13 @@
         0%, 100% { box-shadow: 0 0 0 0 rgba(239,68,68,0); }
         50%       { box-shadow: 0 0 40px 10px rgba(239,68,68,0.35); }
       }
+      @keyframes fireEdge {
+        0%   { opacity: 0.0; box-shadow: inset 0 0  20px  6px rgba(239, 68, 68, 0.0),  inset 0 0  40px 12px rgba(249,115,22,0.0); }
+        20%  { opacity: 1.0; box-shadow: inset 0 0  60px 20px rgba(239, 68, 68, 0.55), inset 0 0 100px 30px rgba(249,115,22,0.3); }
+        50%  { opacity: 1.0; box-shadow: inset 0 0 100px 35px rgba(239, 68, 68, 0.75), inset 0 0 160px 50px rgba(249,115,22,0.45); }
+        75%  { opacity: 1.0; box-shadow: inset 0 0  80px 28px rgba(239, 68, 68, 0.65), inset 0 0 130px 40px rgba(249,115,22,0.35); }
+        100% { opacity: 0.0; box-shadow: inset 0 0  20px  6px rgba(239, 68, 68, 0.0),  inset 0 0  40px 12px rgba(249,115,22,0.0); }
+      }
     </style>
   </head>
   <body>

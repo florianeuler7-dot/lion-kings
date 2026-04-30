@@ -629,15 +629,31 @@ function CelebrationOverlay({ message, nextExercise, onDone }) {
   const [fading, setFading] = React.useState(false);
 
   React.useEffect(() => {
-    const t1 = setTimeout(() => setFading(true), 1900);
-    const t2 = setTimeout(onDone, 2500);
-    return () => { clearTimeout(t1); clearTimeout(t2); };
+    // Escalating vibration: short pulses → longer bursts over 3 seconds
+    if (navigator.vibrate) {
+      navigator.vibrate([
+        80, 60,          // beat 1
+        100, 50,         // beat 2
+        120, 40,         // beat 3
+        150, 35,         // beat 4
+        180, 30,         // beat 5
+        220, 25,         // beat 6 – climax
+        300,             // long final buzz
+      ]);
+    }
+    const t1 = setTimeout(() => setFading(true), 3200);
+    const t2 = setTimeout(onDone, 4000);
+    return () => {
+      clearTimeout(t1); clearTimeout(t2);
+      if (navigator.vibrate) navigator.vibrate(0);
+    };
   }, []);
 
   const handleTap = () => {
     if (!fading) {
+      if (navigator.vibrate) navigator.vibrate(0);
       setFading(true);
-      setTimeout(onDone, 500);
+      setTimeout(onDone, 600);
     }
   };
 
@@ -648,16 +664,22 @@ function CelebrationOverlay({ message, nextExercise, onDone }) {
       style={{
         background: 'radial-gradient(ellipse at 50% 38%, #3f0a0a 0%, #0c0101 55%, #0a0a0a 100%)',
         opacity: fading ? 0 : 1,
-        transition: 'opacity 0.55s ease',
+        transition: 'opacity 0.7s ease',
         paddingTop: 'env(safe-area-inset-top)',
         paddingBottom: 'env(safe-area-inset-bottom)',
       }}
     >
+      {/* Fire border — inset box-shadow rings around the whole screen */}
+      <div style={{
+        position: 'absolute', inset: 0, pointerEvents: 'none', borderRadius: 0,
+        animation: 'fireEdge 4s ease-in-out both',
+      }} />
+
       {SPARKS.map((s, i) => (
         <div key={i} style={{
           position: 'absolute', top: s.top, left: s.left,
           fontSize: s.size, color: s.color, pointerEvents: 'none',
-          animation: `celebSpark 1.3s ease-out ${s.delay} both`,
+          animation: `celebSpark 2s ease-out ${s.delay} both`,
         }}>
           {s.char}
         </div>
@@ -671,7 +693,7 @@ function CelebrationOverlay({ message, nextExercise, onDone }) {
           background: 'rgba(239,68,68,0.12)',
           display: 'flex', alignItems: 'center', justifyContent: 'center',
           marginBottom: 28,
-          animation: 'celebPulse 1.2s ease-in-out 0.4s 2',
+          animation: 'celebPulse 1s ease-in-out 0.4s 3',
         }}>
           <svg width="38" height="38" viewBox="0 0 24 24" fill="none"
             stroke="#f87171" strokeWidth={2.5} strokeLinecap="round" strokeLinejoin="round">
