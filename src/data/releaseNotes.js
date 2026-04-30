@@ -20,7 +20,7 @@ const RELEASE_NOTES = [
       "Button wechselt zu 'Übung abschließen' beim letzten Satz",
       "Verlauf und Feed zeigen relative Zeit statt Datum",
     ],
-    thanks: null,
+    thanks: "Special thanks to: Davide \u2665",
     motto: "Keep pushing — never back down.",
   },
 ];
