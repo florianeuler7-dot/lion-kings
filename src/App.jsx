@@ -615,7 +615,7 @@ export default function App() {
         )}
         {screen === 'history' && <HistoryScreen history={history} />}
         {screen === 'plan' && <PlanScreen plan={PLAN} schedule={DAY_MAP} />}
-        {screen === 'dashboard' && <DashboardScreen user={user} />}
+        {screen === 'dashboard' && <DashboardScreen user={user} optionalDays={new Set(Object.entries(DAY_MAP).filter(([,v]) => v === 'rest' || v === 'cardio_optional').map(([k]) => parseInt(k)))} />}
         {screen === 'coach' && <CoachScreen user={user} currentPlan={PLAN} currentSchedule={DAY_MAP} onPlanSaved={handlePlanSaved} showToast={showToast} />}
         {screen === 'cardio' && <CardioScreen onFinish={finishCardio} onCancel={() => { clearLiveStatus(user.id); setCombinedFlow(false); setScreen('home'); }} showToast={showToast} user={user} combinedFlow={combinedFlow} />}
         {screen === 'mobility' && <MobilityScreen onFinish={finishMobility} onCancel={() => { clearLiveStatus(user.id); setCombinedFlow(false); setScreen('home'); }} user={user} combinedFlow={combinedFlow} />}
@@ -1126,11 +1126,14 @@ function WorkoutScreen({ workout, setWorkout, lastWeights, onFinish, onCancel, s
   const exercise = plan.exercises[exerciseIdx];
   const totalSets = exercise.sets;
 
-  // Update live status when exercise changes
+  // Update live status when exercise changes + keep-alive ping every 60s
   useEffect(() => {
-    if (user) {
-      setLiveStatus(user.id, plan.name, `Übung ${exerciseIdx + 1}/${plan.exercises.length}`);
-    }
+    if (!user) return;
+    const detail = `Übung ${exerciseIdx + 1}/${plan.exercises.length}`;
+    setLiveStatus(user.id, plan.name, detail);
+    // Ping regularly so dashboard knows workout is still active
+    const ping = setInterval(() => setLiveStatus(user.id, plan.name, detail), 60_000);
+    return () => clearInterval(ping);
   }, [exerciseIdx, user]);
 
   useWakeLock();
@@ -1174,7 +1177,8 @@ function WorkoutScreen({ workout, setWorkout, lastWeights, onFinish, onCancel, s
         playBeep();
         if (navigator.vibrate) navigator.vibrate([200, 100, 200]);
         cancelRestNotification();
-        window.scrollTo({ top: 0, behavior: 'smooth' });
+        // Defer scroll until after React re-renders (removes the overlay)
+        setTimeout(() => window.scrollTo({ top: 0, behavior: 'instant' }), 50);
       }
     };
     tick();
@@ -2390,7 +2394,7 @@ Di: Pull
 }
 
 // ===== DASHBOARD =====
-function DashboardScreen({ user }) {
+function DashboardScreen({ user, optionalDays = new Set() }) {
   const [users, setUsers] = useState([]);
   const [liveStatuses, setLiveStatuses] = useState([]);
   const [feed, setFeed] = useState([]);
@@ -2418,9 +2422,13 @@ function DashboardScreen({ user }) {
         getActivityFeed(200),
       ]);
       setUsers(allUsers);
-      // Ignore stale live statuses (app crashed / closed without cleanup)
-      const twoHoursAgo = Date.now() - 2 * 60 * 60 * 1000;
-      setLiveStatuses(statuses.filter(s => new Date(s.updated_at).getTime() > twoHoursAgo));
+      // Only show statuses updated within last 3 minutes (active workout ping)
+      // and never show own user's status
+      const threeMinAgo = Date.now() - 3 * 60 * 1000;
+      setLiveStatuses(statuses.filter(s =>
+        s.user_id !== user.id &&
+        new Date(s.updated_at).getTime() > threeMinAgo
+      ));
       setFeed(feedRows);
 
       const ids = feedRows.map(w => w.id);
@@ -2501,7 +2509,7 @@ function DashboardScreen({ user }) {
       ? now - 7 * 24 * 60 * 60 * 1000
       : now - 30 * 24 * 60 * 60 * 1000;
     const filtered = userWorkouts.filter(w => new Date(w.created_at || w.date).getTime() > cutoff);
-    const stats = computeUserStats(userWorkouts);
+    const stats = computeUserStats(userWorkouts, optionalDays);
     const status = liveStatuses.find(s => s.user_id === u.id);
     return { user: u, stats, count: filtered.length };
   }).sort((a, b) => b.count - a.count);

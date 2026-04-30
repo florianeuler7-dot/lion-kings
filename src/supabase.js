@@ -285,25 +285,35 @@ export async function addComment(workoutId, userId, content) {
 }
 
 // Compute stats for a user's workouts
-export function computeUserStats(workouts) {
+// optionalDays: Set of day-of-week numbers (0=Sun…6=Sat) that are rest/optional.
+// Those days are skipped entirely — missing a workout on them doesn't break the streak.
+export function computeUserStats(workouts, optionalDays = new Set()) {
   const totalWorkouts = workouts.length;
   const now = Date.now();
   const weekAgo = now - 7 * 24 * 60 * 60 * 1000;
   const thisWeek = workouts.filter(w => new Date(w.created_at || w.date).getTime() > weekAgo).length;
 
-  // Streak: consecutive days back from today
+  // Streak: consecutive REQUIRED days back from today
   const dates = new Set(workouts.map(w => (w.date || w.dateOnly)));
   let streak = 0;
   let cursor = new Date();
   cursor.setHours(0, 0, 0, 0);
   for (let i = 0; i < 365; i++) {
+    const dow = cursor.getDay();
     const ds = `${cursor.getFullYear()}-${String(cursor.getMonth()+1).padStart(2,'0')}-${String(cursor.getDate()).padStart(2,'0')}`;
+    const isOptional = optionalDays.has(dow);
+
+    if (isOptional) {
+      // Skip rest/optional day — does not break or extend streak
+      cursor.setDate(cursor.getDate() - 1);
+      continue;
+    }
     if (dates.has(ds)) {
       streak++;
       cursor.setDate(cursor.getDate() - 1);
     } else {
-      // Allow one rest day in streak only if it's today (haven't trained yet today)
       if (i === 0) {
+        // Today not yet trained — still allow streak to continue from yesterday
         cursor.setDate(cursor.getDate() - 1);
         continue;
       }
