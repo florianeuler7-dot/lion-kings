@@ -460,29 +460,43 @@ export default function App() {
     } catch (e) {}
   };
 
-  const finishWorkout = async (logs, extras = {}) => {
+  const finishWorkout = (logs, extras = {}) => {
+    const duration = Math.floor((Date.now() - activeWorkout.startTime) / 60000);
+    clearLiveStatus(user.id);
+    setActiveWorkout(null);
+    setScreen('home');
+    // Store pending workout — modal will ask for notes, then call saveCompletedWorkout
+    setWorkoutComplete({
+      planKey: activeWorkout.planKey,
+      planName: activeWorkout.plan.name,
+      logs,
+      duration,
+      skippedExercises: extras.skippedExercises || [],
+    });
+  };
+
+  const saveCompletedWorkout = async (note) => {
+    const w = workoutComplete;
+    if (!w) return;
+    setWorkoutComplete(null);
     try {
       const newRow = await persistWorkout({
         date: new Date().toISOString(),
-        planKey: activeWorkout.planKey,
-        planName: activeWorkout.plan.name,
-        logs,
-        duration: Math.floor((Date.now() - activeWorkout.startTime) / 60000),
-        notes: extras.notes || '',
-        skippedExercises: extras.skippedExercises || [],
+        planKey: w.planKey,
+        planName: w.planName,
+        logs: w.logs,
+        duration: w.duration,
+        notes: note || '',
+        skippedExercises: w.skippedExercises,
       });
       const newLW = { ...lastWeights };
-      logs.forEach(l => {
+      w.logs.forEach(l => {
         if (l.sets.length > 0) {
           const heaviest = Math.max(...l.sets.map(s => parseFloat(s.weight) || 0));
           if (heaviest > 0) newLW[l.name] = heaviest;
         }
       });
       setLastWeights(newLW);
-      clearLiveStatus(user.id);
-      setActiveWorkout(null);
-      setScreen('home');
-      setWorkoutComplete({ planName: activeWorkout.plan.name, duration: Math.floor((Date.now() - activeWorkout.startTime) / 60000) });
     } catch (e) {}
   };
 
@@ -531,7 +545,7 @@ export default function App() {
       {workoutComplete && (
         <WorkoutCompleteModal
           data={workoutComplete}
-          onClose={() => setWorkoutComplete(null)}
+          onClose={saveCompletedWorkout}
         />
       )}
 
@@ -608,6 +622,7 @@ function NavBtn({ icon: Icon, label, active, onClick }) {
 
 function WorkoutCompleteModal({ data, onClose }) {
   const q = MOTIVATION_QUOTES.filter(q => q.author === 'Markus Rühl')[new Date().getDate() % MOTIVATION_QUOTES.filter(q => q.author === 'Markus Rühl').length];
+  const [note, setNote] = React.useState('');
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center px-6" style={{ background: 'rgba(0,0,0,0.85)' }}>
       <div className="bg-zinc-900 border border-zinc-700 rounded-2xl p-8 w-full max-w-sm text-center shadow-2xl">
@@ -619,13 +634,23 @@ function WorkoutCompleteModal({ data, onClose }) {
         <div className="font-display text-3xl text-white mb-1">TRAINING FERTIG</div>
         <div className="font-display text-lg text-red-500 mb-1">{data.planName.toUpperCase()}</div>
         {formatDuration(data.duration) && (
-          <div className="font-mono text-sm text-zinc-400 mb-6">{formatDuration(data.duration)}</div>
+          <div className="font-mono text-sm text-zinc-400 mb-4">{formatDuration(data.duration)}</div>
         )}
-        <div className="border-t border-zinc-800 pt-5 mb-6">
+        <div className="border-t border-zinc-800 pt-4 mb-4 text-left">
+          <div className="font-mono text-xs text-zinc-500 uppercase tracking-widest mb-2">Notiz zum Training</div>
+          <textarea
+            value={note}
+            onChange={e => setNote(e.target.value)}
+            placeholder="Wie lief's? Gewicht, Gefühl, Besonderheiten..."
+            rows={3}
+            className="w-full bg-zinc-950 border border-zinc-800 rounded-lg px-3 py-2 text-sm text-zinc-100 placeholder:text-zinc-600 focus:border-red-500/50 focus:outline-none resize-none"
+          />
+        </div>
+        <div className="border-t border-zinc-800 pt-4 mb-5">
           <div className="text-zinc-300 text-sm font-mono italic leading-snug">„{q.text}"</div>
           <div className="text-zinc-500 text-xs font-mono mt-2">— {q.author}</div>
         </div>
-        <button onClick={onClose} className="w-full bg-red-600 text-white font-display text-xl py-4 rounded-xl">
+        <button onClick={() => onClose(note)} className="w-full bg-red-600 text-white font-display text-xl py-4 rounded-xl">
           WEITER
         </button>
       </div>
@@ -944,8 +969,6 @@ function WorkoutScreen({ workout, setWorkout, lastWeights, onFinish, onCancel, s
   const [restEndAt, setRestEndAt] = useState(null); // timestamp when pause ends
   const [restDisplay, setRestDisplay] = useState(0); // seconds shown in UI
   const [restRunning, setRestRunning] = useState(false);
-  const [notesOpen, setNotesOpen] = useState(false);
-  const [notes, setNotes] = useState(workout.notes || '');
   const [skippedNames, setSkippedNames] = useState(workout.skippedExercises || []);
   const [skipConfirm, setSkipConfirm] = useState(false);
   const lastDrinkRef = useRef(Date.now());
@@ -1004,7 +1027,7 @@ function WorkoutScreen({ workout, setWorkout, lastWeights, onFinish, onCancel, s
     const isLastExercise = exerciseIdx + 1 >= plan.exercises.length;
 
     if (isLastSet && isLastExercise) {
-      onFinish(newLogs, { notes, skippedExercises: skippedNames });
+      onFinish(newLogs, { skippedExercises: skippedNames });
       return;
     }
     if (isLastSet) {
@@ -1035,7 +1058,7 @@ function WorkoutScreen({ workout, setWorkout, lastWeights, onFinish, onCancel, s
     if (isLastExercise) {
       const hasAnyData = savedLogs.some(l => l.sets.length > 0);
       if (hasAnyData) {
-        onFinish(savedLogs, { notes, skippedExercises: newSkipped });
+        onFinish(savedLogs, { skippedExercises: newSkipped });
       } else {
         showToast('Keine Daten erfasst', 'info');
         onCancel();
@@ -1067,26 +1090,6 @@ function WorkoutScreen({ workout, setWorkout, lastWeights, onFinish, onCancel, s
       <div className="h-1 bg-zinc-900 rounded-full overflow-hidden mb-4">
         <div className="h-full bg-red-500 transition-all" style={{ width: `${((exerciseIdx + setIdx/totalSets) / plan.exercises.length) * 100}%` }} />
       </div>
-
-      {/* Notes drawer */}
-      {notesOpen && (
-        <div className="bg-zinc-900 border border-zinc-800 rounded-xl p-4 mb-4">
-          <div className="font-mono text-xs text-zinc-500 uppercase tracking-widest mb-2">Notiz zum Training</div>
-          <textarea
-            value={notes}
-            onChange={e => setNotes(e.target.value)}
-            placeholder="z.B. Knie zwickt, Gewicht nächstes Mal +2,5 kg..."
-            rows={3}
-            autoFocus
-            className="w-full bg-zinc-950 border border-zinc-800 rounded-lg px-3 py-2 text-sm text-zinc-100 focus:border-red-500 focus:outline-none resize-none"
-          />
-          <div className="flex justify-end mt-2">
-            <button onClick={() => setNotesOpen(false)} className="font-mono text-xs text-zinc-500 hover:text-zinc-300">
-              schließen
-            </button>
-          </div>
-        </div>
-      )}
 
       {/* Skip-confirm dialog */}
       {skipConfirm && (
@@ -1201,15 +1204,9 @@ function WorkoutScreen({ workout, setWorkout, lastWeights, onFinish, onCancel, s
           />
         </div>
 
-        <div className="grid grid-cols-2 gap-2 mt-2">
-          <button onClick={() => setNotesOpen(!notesOpen)}
-            className={`bg-zinc-900 hover:bg-zinc-800 border rounded-lg py-2.5 font-mono text-xs flex items-center justify-center gap-2 ${
-              notes ? 'border-yellow-600/50 text-yellow-400' : 'border-zinc-800 text-zinc-400'
-            }`}>
-            <StickyNote className="w-3 h-3" /> {notes ? 'Training-Notiz' : 'Training-Notiz'}
-          </button>
+        <div className="mt-2">
           <button onClick={() => setSkipConfirm(true)}
-            className="bg-zinc-900 hover:bg-zinc-800 border border-zinc-800 text-zinc-400 font-mono text-xs py-2.5 rounded-lg flex items-center justify-center gap-2">
+            className="w-full bg-zinc-900 hover:bg-zinc-800 border border-zinc-800 text-zinc-400 font-mono text-xs py-2.5 rounded-lg flex items-center justify-center gap-2">
             <Forward className="w-3 h-3" /> Übung überspringen
           </button>
         </div>
