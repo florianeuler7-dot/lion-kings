@@ -1522,7 +1522,8 @@ function WorkoutScreen({ workout, setWorkout, lastWeights, onFinish, onCancel, s
 
   return (
     <div className="min-h-screen flex flex-col">
-      <div className="pt-6 pb-4 flex items-center justify-between">
+      <div className="pb-3 flex items-center justify-between"
+        style={{ paddingTop: 'max(0.5rem, env(safe-area-inset-top))' }}>
         <div className="w-6"></div>
         <div className="font-mono text-xs text-zinc-500">Übung {exerciseIdx + 1} / {plan.exercises.length}</div>
         <button onClick={onCancel} className="text-zinc-500"><X className="w-6 h-6" /></button>
