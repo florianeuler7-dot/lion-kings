@@ -1044,6 +1044,7 @@ function WorkoutScreen({ workout, setWorkout, lastWeights, onFinish, onCancel, s
   const [restEndAt, setRestEndAt] = useState(null); // timestamp when pause ends
   const [restDisplay, setRestDisplay] = useState(0); // seconds shown in UI
   const [restRunning, setRestRunning] = useState(false);
+  const [notesOpen, setNotesOpen] = useState(false);
   const [notes, setNotes] = useState(workout.notes || '');
   const [skippedNames, setSkippedNames] = useState(workout.skippedExercises || []);
   const [skipConfirm, setSkipConfirm] = useState(false);
