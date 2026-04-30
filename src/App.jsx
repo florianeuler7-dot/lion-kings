@@ -1413,6 +1413,7 @@ function WorkoutScreen({ workout, setWorkout, lastWeights, onFinish, onCancel, s
     setRestDisplay(0);
     setEarlyRestConfirm(false);
     cancelRestNotification();
+    setTimeout(() => window.scrollTo({ top: 0, behavior: 'instant' }), 50);
   };
   const trySkipRest = () => {
     const rec = exercise.restSec || 90;
@@ -1559,9 +1560,7 @@ function WorkoutScreen({ workout, setWorkout, lastWeights, onFinish, onCancel, s
               <div className="h-full rounded-full transition-all duration-300"
                 style={{ width: `${pct}%`, background: recReached ? '#4ade80' : '#ef4444' }} />
             </div>
-            <div className="font-mono text-xs text-zinc-600 mb-8">
-              {fmt(restDisplay)} / {fmt(rec)}
-            </div>
+            <div className="mb-8" />
 
             {overdue && (
               <div className="font-mono text-xs text-orange-400 mb-4">🔥 Bereit für den nächsten Satz?</div>
@@ -1581,15 +1580,7 @@ function WorkoutScreen({ workout, setWorkout, lastWeights, onFinish, onCancel, s
 
       <div className="flex-1">
         <div className="font-mono text-xs text-zinc-500 uppercase tracking-widest mb-2">{plan.name}</div>
-        <div className="flex items-start justify-between gap-2 mb-3">
-          <h2 className="font-display text-5xl text-zinc-100 leading-none">{displayName.toUpperCase()}</h2>
-          {!isAlternative && completedSets.length === 0 && (
-            <button onClick={openAltModal}
-              className="shrink-0 mt-1 bg-zinc-800 border border-zinc-700 text-zinc-400 font-mono text-xs px-2.5 py-1.5 rounded-lg flex items-center gap-1.5 hover:bg-zinc-700">
-              <X className="w-3 h-3" /> Gerät belegt
-            </button>
-          )}
-        </div>
+        <h2 className="font-display text-5xl text-zinc-100 leading-none mb-3">{displayName.toUpperCase()}</h2>
         {isAlternative && (
           <div className="flex items-center gap-2 mb-2 font-mono text-xs text-orange-400 bg-orange-950/30 border border-orange-800/30 rounded-lg px-3 py-1.5">
             <Forward className="w-3 h-3 shrink-0" />
