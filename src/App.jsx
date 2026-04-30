@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { Dumbbell, Play, Pause, SkipForward, Check, Calendar, History, Home, X, Droplet, ChevronRight, ChevronDown, Clock, Flame, TrendingUp, Coffee, Timer, Heart, Activity, Sparkles, User, LogOut, AlertCircle, Users, Trophy, Zap, Plus, Minus, Camera, Upload, StickyNote, Forward, MessageCircle, Send, RotateCcw } from 'lucide-react';
 import { findUserByName, getUserById, createUser, getLastWorkoutDate, getUserWorkouts, saveWorkout, rowToWorkout, computeLastWeights, getAllUsers, getActivityFeed, getAllLiveStatuses, setLiveStatus, clearLiveStatus, getReactionsForWorkouts, toggleReaction, getCommentsForWorkouts, addComment, computeUserStats, supabase, uploadAvatar, updateUserAvatar, saveUserPlan, getActivePlanForUser, parsePlanText, coachChat } from './supabase';
+import RELEASE_NOTES from './data/releaseNotes';
 
 // ===== HELPERS =====
 // Legacy workouts stored duration in seconds; newer ones in minutes.
@@ -903,7 +904,91 @@ function WorkoutCompleteModal({ data, onClose }) {
   );
 }
 
+// ===== RELEASE NOTES =====
+
+const LK_SEEN_VERSION_KEY = 'lk_last_seen_version';
+
+function useLatestRelease() {
+  const latest = RELEASE_NOTES[0];
+  const [unseen, setUnseen] = useState(() => {
+    try {
+      const seen = localStorage.getItem(LK_SEEN_VERSION_KEY);
+      return seen !== latest.version;
+    } catch { return false; }
+  });
+  const markSeen = () => {
+    try { localStorage.setItem(LK_SEEN_VERSION_KEY, latest.version); } catch {}
+    setUnseen(false);
+  };
+  return { release: latest, unseen, markSeen };
+}
+
+function ReleaseModal({ release, onClose }) {
+  return (
+    <div className="fixed inset-0 z-50 flex flex-col justify-end"
+      style={{ background: 'rgba(0,0,0,0.75)', paddingBottom: 'env(safe-area-inset-bottom)' }}
+      onClick={onClose}>
+      <div className="bg-zinc-950 border-t border-zinc-800 rounded-t-3xl px-6 pt-7 pb-10 max-h-[88vh] overflow-y-auto"
+        onClick={e => e.stopPropagation()}>
+
+        {/* Header */}
+        <div className="flex items-start justify-between mb-6">
+          <div>
+            <div className="flex items-center gap-2 mb-1">
+              <span className="bg-red-600 text-white font-mono text-xs px-2 py-0.5 rounded-full uppercase tracking-widest">NEU</span>
+              <span className="font-mono text-xs text-zinc-500">{release.version} · {release.date}</span>
+            </div>
+            <div className="font-display text-3xl text-zinc-100">{release.title.toUpperCase()}</div>
+          </div>
+          <button onClick={onClose} className="text-zinc-500 p-1 mt-1"><X className="w-5 h-5" /></button>
+        </div>
+
+        {/* Highlights */}
+        <div className="space-y-3 mb-7">
+          {release.highlights.map((h, i) => (
+            <div key={i} className="flex items-start gap-3">
+              <div className="w-1.5 h-1.5 rounded-full bg-red-500 mt-2 shrink-0" />
+              <div className="font-mono text-sm text-zinc-300 leading-snug">{h}</div>
+            </div>
+          ))}
+        </div>
+
+        {/* Thanks */}
+        {release.thanks && (
+          <div className="border-t border-zinc-800 pt-5 mb-6">
+            <div className="font-mono text-xs text-zinc-500 italic">{release.thanks}</div>
+          </div>
+        )}
+
+        {/* Motto */}
+        <div className="border-t border-zinc-800 pt-6">
+          <div className="font-display text-2xl text-red-500 leading-tight">{release.motto.toUpperCase()}</div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function ReleaseBadge({ release, onOpen }) {
+  return (
+    <button onClick={onOpen}
+      className="w-full flex items-center gap-3 bg-zinc-900 border border-zinc-800 rounded-xl px-4 py-3 mb-5 text-left hover:border-zinc-700 transition-colors">
+      <div className="w-2 h-2 rounded-full bg-red-500 shrink-0 animate-pulse" />
+      <div className="flex-1 min-w-0">
+        <div className="font-display text-sm text-zinc-100">{release.title.toUpperCase()}</div>
+        <div className="font-mono text-xs text-zinc-500 truncate">{release.highlights[0]}</div>
+      </div>
+      <div className="font-mono text-xs text-red-400 shrink-0">NEU →</div>
+    </button>
+  );
+}
+
 function HomeScreen({ user, onLogout, onChangeAvatar, plan: PLAN, todayPlan, todayKey, todayName, history, dataLoading, onStart, onPickOther, onStartCardio, onStartMobility, onStartCombined, onLogCustom }) {
+  const { release, unseen, markSeen } = useLatestRelease();
+  const [releaseModalOpen, setReleaseModalOpen] = useState(false);
+  const openRelease = () => setReleaseModalOpen(true);
+  const closeRelease = () => { markSeen(); setReleaseModalOpen(false); };
+
   const isRest = todayKey === 'rest';
   const isCardio = todayKey === 'cardio';
   const isCardioOptional = todayKey === 'cardio_optional';
@@ -952,6 +1037,10 @@ function HomeScreen({ user, onLogout, onChangeAvatar, plan: PLAN, todayPlan, tod
           <LogOut className="w-4 h-4" />
         </button>
       </div>
+
+      {releaseModalOpen && <ReleaseModal release={release} onClose={closeRelease} />}
+
+      {unseen && <ReleaseBadge release={release} onOpen={openRelease} />}
 
       <div className="mb-8">
         <div className="font-mono text-xs text-zinc-500 uppercase tracking-widest mb-1">{todayName}</div>
@@ -1255,6 +1344,9 @@ function WorkoutScreen({ workout, setWorkout, lastWeights, onFinish, onCancel, s
   const restStartRef = useRef(null);
   const recReachedRef = useRef(false);
   const restElapsedBeforeEditRef = useRef(0);
+
+  // Scroll to top on mount (user may have scrolled down on previous screen)
+  useEffect(() => { window.scrollTo({ top: 0, behavior: 'instant' }); }, []);
 
   useEffect(() => {
     const interval = setInterval(() => {
