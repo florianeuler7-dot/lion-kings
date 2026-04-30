@@ -270,6 +270,8 @@ const session = {
 export default function App() {
   const [user, setUser] = useState(null); // {id, name}
   const [authLoading, setAuthLoading] = useState(true);
+  const [splashVisible, setSplashVisible] = useState(true);
+  const [splashFading, setSplashFading] = useState(false);
   const [dataLoading, setDataLoading] = useState(false);
   const [screen, setScreen] = useState('home');
   const [activeWorkout, setActiveWorkout] = useState(null);
@@ -300,8 +302,19 @@ export default function App() {
         }
       }
       setAuthLoading(false);
+      // Kick off splash fade-out after auth resolves
+      setSplashFading(true);
+      setTimeout(() => setSplashVisible(false), 650);
     })();
   }, []);
+
+  // Clear live status when the tab/app closes
+  useEffect(() => {
+    if (!user) return;
+    const cleanup = () => clearLiveStatus(user.id);
+    window.addEventListener('beforeunload', cleanup);
+    return () => window.removeEventListener('beforeunload', cleanup);
+  }, [user]);
 
   // Load workouts and plan when user is set
   useEffect(() => {
@@ -520,8 +533,9 @@ export default function App() {
   // Show onboarding if no user
   if (authLoading) {
     return (
-      <div className="min-h-screen bg-zinc-950 flex items-center justify-center">
-        <div className="font-display text-3xl text-red-500 animate-pulse">LION KINGS</div>
+      <div className="min-h-screen bg-zinc-950 flex items-center justify-center"
+        style={{ opacity: splashFading ? 0 : 1, transition: 'opacity 0.65s ease' }}>
+        <div className="font-display text-3xl text-red-500">LION KINGS</div>
       </div>
     );
   }
@@ -532,6 +546,13 @@ export default function App() {
 
   return (
     <div className="min-h-screen bg-zinc-950 text-zinc-100 grain relative safe-top safe-bottom">
+      {/* Splash fade-out overlay — covers initial render until auth settled */}
+      {splashVisible && (
+        <div className="fixed inset-0 z-[200] bg-zinc-950 flex items-center justify-center pointer-events-none"
+          style={{ opacity: splashFading ? 0 : 1, transition: 'opacity 0.65s ease' }}>
+          <div className="font-display text-3xl text-red-500">LION KINGS</div>
+        </div>
+      )}
       {/* Hidden file input for changing avatar */}
       <input
         ref={avatarInputRef}
@@ -1034,9 +1055,16 @@ function CustomWorkoutModal({ onSave, onClose }) {
 function useWakeLock() {
   const ref = useRef(null);
   useEffect(() => {
+    if (!('wakeLock' in navigator)) return;
     const acquire = async () => {
       try {
-        if ('wakeLock' in navigator) ref.current = await navigator.wakeLock.request('screen');
+        if (ref.current) return; // already held
+        ref.current = await navigator.wakeLock.request('screen');
+        // Re-acquire immediately if the system releases it (e.g. low battery)
+        ref.current.addEventListener('release', () => {
+          ref.current = null;
+          if (document.visibilityState === 'visible') acquire();
+        });
       } catch (_) {}
     };
     acquire();
@@ -1045,6 +1073,7 @@ function useWakeLock() {
     return () => {
       document.removeEventListener('visibilitychange', onVisible);
       ref.current?.release().catch(() => {});
+      ref.current = null;
     };
   }, []);
 }
@@ -1145,6 +1174,7 @@ function WorkoutScreen({ workout, setWorkout, lastWeights, onFinish, onCancel, s
         playBeep();
         if (navigator.vibrate) navigator.vibrate([200, 100, 200]);
         cancelRestNotification();
+        window.scrollTo({ top: 0, behavior: 'smooth' });
       }
     };
     tick();
@@ -2370,7 +2400,7 @@ function DashboardScreen({ user }) {
   const [commentInputs, setCommentInputs] = useState({}); // workoutId -> text
   const [allWorkoutsByUser, setAllWorkoutsByUser] = useState({});
   const [loading, setLoading] = useState(true);
-  const [tab, setTab] = useState('feed');
+  const [tab, setTab] = useState('leaderboard');
 
   const REACTIONS = ['💪', '🔥', '👏', '🦁'];
 
@@ -2388,7 +2418,9 @@ function DashboardScreen({ user }) {
         getActivityFeed(200),
       ]);
       setUsers(allUsers);
-      setLiveStatuses(statuses);
+      // Ignore stale live statuses (app crashed / closed without cleanup)
+      const twoHoursAgo = Date.now() - 2 * 60 * 60 * 1000;
+      setLiveStatuses(statuses.filter(s => new Date(s.updated_at).getTime() > twoHoursAgo));
       setFeed(feedRows);
 
       const ids = feedRows.map(w => w.id);
@@ -2522,17 +2554,17 @@ function DashboardScreen({ user }) {
 
       {/* Tab switcher */}
       <div className="flex gap-2 mb-4">
-        <button onClick={() => setTab('feed')}
-          className={`flex-1 py-2.5 rounded-lg font-display text-sm transition-colors ${
-            tab === 'feed' ? 'bg-red-600 text-white' : 'bg-zinc-900 text-zinc-400'
-          }`}>
-          ACTIVITY
-        </button>
         <button onClick={() => setTab('leaderboard')}
           className={`flex-1 py-2.5 rounded-lg font-display text-sm transition-colors ${
             tab === 'leaderboard' ? 'bg-red-600 text-white' : 'bg-zinc-900 text-zinc-400'
           }`}>
           LEADERBOARD
+        </button>
+        <button onClick={() => setTab('feed')}
+          className={`flex-1 py-2.5 rounded-lg font-display text-sm transition-colors ${
+            tab === 'feed' ? 'bg-red-600 text-white' : 'bg-zinc-900 text-zinc-400'
+          }`}>
+          ACTIVITY
         </button>
       </div>
 
