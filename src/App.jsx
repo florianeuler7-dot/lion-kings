@@ -923,73 +923,52 @@ function useLatestRelease() {
   return { release: latest, unseen, markSeen };
 }
 
-function ReleaseModal({ release, onClose }) {
+function ReleaseCard({ release, onDismiss }) {
+  const [open, setOpen] = useState(false);
   return (
-    <div className="fixed inset-0 z-50 flex flex-col justify-end"
-      style={{ background: 'rgba(0,0,0,0.75)' }}
-      onClick={onClose}>
-      <div className="bg-zinc-950 border-t border-zinc-800 rounded-t-3xl px-6 pt-7"
-        style={{ maxHeight: '88vh', overflowY: 'scroll', WebkitOverflowScrolling: 'touch',
-                 paddingBottom: 'calc(2.5rem + env(safe-area-inset-bottom))' }}
-        onClick={e => e.stopPropagation()}>
+    <div className="bg-zinc-900 border border-zinc-800 rounded-xl mb-5 overflow-hidden">
+      {/* Collapsed header — always visible */}
+      <button onClick={() => setOpen(v => !v)}
+        className="w-full flex items-center gap-3 px-4 py-3 text-left">
+        <div className="w-2 h-2 rounded-full bg-red-500 shrink-0 animate-pulse" />
+        <div className="flex-1 min-w-0">
+          <div className="font-display text-sm text-zinc-100">{release.title.toUpperCase()}</div>
+          <div className="font-mono text-xs text-zinc-500 truncate">{release.highlights[0]}</div>
+        </div>
+        <ChevronDown className={`w-4 h-4 text-zinc-500 shrink-0 transition-transform duration-200 ${open ? 'rotate-180' : ''}`} />
+      </button>
 
-        {/* Header */}
-        <div className="flex items-start justify-between mb-6">
-          <div>
-            <div className="flex items-center gap-2 mb-1">
-              <span className="bg-red-600 text-white font-mono text-xs px-2 py-0.5 rounded-full uppercase tracking-widest">NEU</span>
-              <span className="font-mono text-xs text-zinc-500">{release.version} · {release.date}</span>
-            </div>
-            <div className="font-display text-3xl text-zinc-100">{release.title.toUpperCase()}</div>
+      {/* Expanded content */}
+      {open && (
+        <div className="px-4 pb-5 border-t border-zinc-800">
+          <div className="flex items-center gap-2 pt-4 mb-4">
+            <span className="bg-red-600 text-white font-mono text-xs px-2 py-0.5 rounded-full uppercase tracking-widest">NEU</span>
+            <span className="font-mono text-xs text-zinc-500">{release.version} · {release.date}</span>
           </div>
-          <button onClick={onClose} className="text-zinc-500 p-1 mt-1"><X className="w-5 h-5" /></button>
-        </div>
-
-        {/* Highlights */}
-        <div className="space-y-3 mb-7">
-          {release.highlights.map((h, i) => (
-            <div key={i} className="flex items-start gap-3">
-              <div className="w-1.5 h-1.5 rounded-full bg-red-500 mt-2 shrink-0" />
-              <div className="font-mono text-sm text-zinc-300 leading-snug">{h}</div>
-            </div>
-          ))}
-        </div>
-
-        {/* Thanks */}
-        {release.thanks && (
-          <div className="border-t border-zinc-800 pt-5 mb-6">
-            <div className="font-mono text-xs text-zinc-500 italic">{release.thanks}</div>
+          <div className="space-y-3 mb-5">
+            {release.highlights.map((h, i) => (
+              <div key={i} className="flex items-start gap-3">
+                <div className="w-1.5 h-1.5 rounded-full bg-red-500 mt-1.5 shrink-0" />
+                <div className="font-mono text-sm text-zinc-300 leading-snug">{h}</div>
+              </div>
+            ))}
           </div>
-        )}
-
-        {/* Motto */}
-        <div className="border-t border-zinc-800 pt-6">
-          <div className="font-display text-2xl text-red-500 leading-tight">{release.motto.toUpperCase()}</div>
+          {release.thanks && (
+            <div className="font-mono text-xs text-zinc-500 italic mb-4">{release.thanks}</div>
+          )}
+          <div className="font-display text-lg text-red-500 leading-tight mb-4">{release.motto.toUpperCase()}</div>
+          <button onClick={onDismiss}
+            className="w-full bg-zinc-800 text-zinc-400 font-mono text-xs py-2.5 rounded-lg">
+            Verstanden
+          </button>
         </div>
-      </div>
+      )}
     </div>
-  );
-}
-
-function ReleaseBadge({ release, onOpen }) {
-  return (
-    <button onClick={onOpen}
-      className="w-full flex items-center gap-3 bg-zinc-900 border border-zinc-800 rounded-xl px-4 py-3 mb-5 text-left hover:border-zinc-700 transition-colors">
-      <div className="w-2 h-2 rounded-full bg-red-500 shrink-0 animate-pulse" />
-      <div className="flex-1 min-w-0">
-        <div className="font-display text-sm text-zinc-100">{release.title.toUpperCase()}</div>
-        <div className="font-mono text-xs text-zinc-500 truncate">{release.highlights[0]}</div>
-      </div>
-      <div className="font-mono text-xs text-red-400 shrink-0">NEU →</div>
-    </button>
   );
 }
 
 function HomeScreen({ user, onLogout, onChangeAvatar, plan: PLAN, todayPlan, todayKey, todayName, history, dataLoading, onStart, onPickOther, onStartCardio, onStartMobility, onStartCombined, onLogCustom }) {
   const { release, unseen, markSeen } = useLatestRelease();
-  const [releaseModalOpen, setReleaseModalOpen] = useState(false);
-  const openRelease = () => setReleaseModalOpen(true);
-  const closeRelease = () => { markSeen(); setReleaseModalOpen(false); };
 
   const isRest = todayKey === 'rest';
   const isCardio = todayKey === 'cardio';
@@ -1020,7 +999,7 @@ function HomeScreen({ user, onLogout, onChangeAvatar, plan: PLAN, todayPlan, tod
   if (!todayPlan) return null;
 
   return (
-    <div className="pt-8">
+    <div className="pt-2">
       {/* User strip */}
       <div className="flex items-center justify-between mb-6">
         <button
@@ -1040,9 +1019,7 @@ function HomeScreen({ user, onLogout, onChangeAvatar, plan: PLAN, todayPlan, tod
         </button>
       </div>
 
-      {releaseModalOpen && <ReleaseModal release={release} onClose={closeRelease} />}
-
-      {unseen && <ReleaseBadge release={release} onOpen={openRelease} />}
+      {unseen && <ReleaseCard release={release} onDismiss={markSeen} />}
 
       <div className="mb-8">
         <div className="font-mono text-xs text-zinc-500 uppercase tracking-widest mb-1">{todayName}</div>
@@ -1522,8 +1499,7 @@ function WorkoutScreen({ workout, setWorkout, lastWeights, onFinish, onCancel, s
 
   return (
     <div className="min-h-screen flex flex-col">
-      <div className="pb-3 flex items-center justify-between"
-        style={{ paddingTop: 'max(0.5rem, env(safe-area-inset-top))' }}>
+      <div className="pt-2 pb-3 flex items-center justify-between">
         <div className="w-6"></div>
         <div className="font-mono text-xs text-zinc-500">Übung {exerciseIdx + 1} / {plan.exercises.length}</div>
         <button onClick={onCancel} className="text-zinc-500"><X className="w-6 h-6" /></button>
@@ -1779,7 +1755,7 @@ function HistoryScreen({ history }) {
 
   if (!entries || entries.length === 0) {
     return (
-      <div className="pt-8">
+      <div className="pt-2">
         <div className="mb-6">
           <div className="font-mono text-xs text-zinc-500 uppercase tracking-widest mb-1">Dein</div>
           <h1 className="font-display text-5xl text-zinc-100 leading-none">VERLAUF</h1>
@@ -1794,7 +1770,7 @@ function HistoryScreen({ history }) {
   }
 
   return (
-    <div className="pt-8">
+    <div className="pt-2">
       <div className="mb-6 flex items-end justify-between">
         <div>
           <div className="font-mono text-xs text-zinc-500 uppercase tracking-widest mb-1">Trainings-Verlauf</div>
@@ -1899,7 +1875,7 @@ function HistoryScreen({ history }) {
 function PlanScreen({ plan: PLAN, schedule }) {
   const [open, setOpen] = useState(null);
   return (
-    <div className="pt-8">
+    <div className="pt-2">
       <div className="mb-6">
         <div className="font-mono text-xs text-zinc-500 uppercase tracking-widest mb-1">Übersicht</div>
         <h1 className="font-display text-5xl text-zinc-100">DER PLAN</h1>
@@ -2879,11 +2855,11 @@ function DashboardScreen({ user, optionalDays = new Set() }) {
   };
 
   if (loading) {
-    return <div className="pt-8 text-zinc-500 font-mono text-sm">Lade Löwen-Daten...</div>;
+    return <div className="pt-2 text-zinc-500 font-mono text-sm">Lade Löwen-Daten...</div>;
   }
 
   return (
-    <div className="pt-8">
+    <div className="pt-2">
       <div className="mb-6">
         <div className="font-mono text-xs text-zinc-500 uppercase tracking-widest mb-1">Die Löwen</div>
         <h1 className="font-display text-5xl text-zinc-100 leading-none">CREW<br/><span className="text-red-500">DASHBOARD</span></h1>

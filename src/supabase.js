@@ -289,9 +289,14 @@ export async function addComment(workoutId, userId, content) {
 // Those days are skipped entirely — missing a workout on them doesn't break the streak.
 export function computeUserStats(workouts, optionalDays = new Set()) {
   const totalWorkouts = workouts.length;
-  const now = Date.now();
-  const weekAgo = now - 7 * 24 * 60 * 60 * 1000;
-  const thisWeek = workouts.filter(w => new Date(w.created_at || w.date).getTime() > weekAgo).length;
+  // "This week" = since Monday 00:00 local time
+  const nowDate = new Date();
+  const dayOfWeek = nowDate.getDay(); // 0=Sun, 1=Mon, …6=Sat
+  const daysSinceMonday = (dayOfWeek + 6) % 7; // Mon=0, Tue=1, …Sun=6
+  const monday = new Date(nowDate);
+  monday.setDate(nowDate.getDate() - daysSinceMonday);
+  monday.setHours(0, 0, 0, 0);
+  const thisWeek = workouts.filter(w => new Date(w.created_at || w.date).getTime() >= monday.getTime()).length;
 
   // Streak: consecutive REQUIRED days back from today
   const dates = new Set(workouts.map(w => (w.date || w.dateOnly)));
