@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { Dumbbell, Play, Pause, SkipForward, Check, Calendar, History, Home, X, Droplet, ChevronRight, ChevronDown, Clock, Flame, TrendingUp, Coffee, Timer, Heart, Activity, Sparkles, User, LogOut, AlertCircle, Users, Trophy, Zap, Plus, Minus, Camera, Upload, StickyNote, Forward, MessageCircle, Send } from 'lucide-react';
+import { Dumbbell, Play, Pause, SkipForward, Check, Calendar, History, Home, X, Droplet, ChevronRight, ChevronDown, Clock, Flame, TrendingUp, Coffee, Timer, Heart, Activity, Sparkles, User, LogOut, AlertCircle, Users, Trophy, Zap, Plus, Minus, Camera, Upload, StickyNote, Forward, MessageCircle, Send, RotateCcw } from 'lucide-react';
 import { findUserByName, getUserById, createUser, getLastWorkoutDate, getUserWorkouts, saveWorkout, rowToWorkout, computeLastWeights, getAllUsers, getActivityFeed, getAllLiveStatuses, setLiveStatus, clearLiveStatus, getReactionsForWorkouts, toggleReaction, getCommentsForWorkouts, addComment, computeUserStats, supabase, uploadAvatar, updateUserAvatar, saveUserPlan, getActivePlanForUser, parsePlanText, coachChat } from './supabase';
 
 // ===== HELPERS =====
@@ -1247,10 +1247,14 @@ function WorkoutScreen({ workout, setWorkout, lastWeights, onFinish, onCancel, s
   const [skippedNames, setSkippedNames] = useState(workout.skippedExercises || []);
   const [skipConfirm, setSkipConfirm] = useState(false);
   const [celebrating, setCelebrating] = useState(null); // { message, nextWorkout, nextExerciseName }
+  const [editModal, setEditModal] = useState(false);
+  const [editWeight, setEditWeight] = useState('');
+  const [editReps, setEditReps] = useState('');
   const lastDrinkRef = useRef(Date.now());
   const restRef = useRef(null);
   const restStartRef = useRef(null);
   const recReachedRef = useRef(false);
+  const restElapsedBeforeEditRef = useRef(0);
 
   useEffect(() => {
     const interval = setInterval(() => {
@@ -1278,8 +1282,14 @@ function WorkoutScreen({ workout, setWorkout, lastWeights, onFinish, onCancel, s
       }
     };
     tick();
-    restRef.current = setInterval(tick, 250);
-    return () => clearInterval(restRef.current);
+    restRef.current = setInterval(tick, 500);
+    // Immediately re-sync after returning from background (iOS throttles intervals)
+    const onVisible = () => { if (document.visibilityState === 'visible') tick(); };
+    document.addEventListener('visibilitychange', onVisible);
+    return () => {
+      clearInterval(restRef.current);
+      document.removeEventListener('visibilitychange', onVisible);
+    };
   }, [restRunning]);
 
   useEffect(() => {
@@ -1326,6 +1336,44 @@ function WorkoutScreen({ workout, setWorkout, lastWeights, onFinish, onCancel, s
     }
   };
 
+  const openEditModal = () => {
+    // Save timer elapsed so Cancel can restore it
+    restElapsedBeforeEditRef.current = (restRunning && restStartRef.current)
+      ? Date.now() - restStartRef.current
+      : 0;
+    setRestRunning(false);
+    restStartRef.current = null;
+    cancelRestNotification();
+    const lastSet = logs[exerciseIdx].sets[logs[exerciseIdx].sets.length - 1];
+    setEditWeight(String(lastSet.weight));
+    setEditReps(String(lastSet.reps));
+    setEditModal(true);
+  };
+
+  const confirmEdit = () => {
+    if (!editWeight || !editReps) { showToast('Gewicht und Wdh. eingeben', 'info'); return; }
+    const newLogs = [...logs];
+    const newSets = [...newLogs[exerciseIdx].sets];
+    newSets[newSets.length - 1] = { weight: parseFloat(editWeight), reps: parseInt(editReps) };
+    newLogs[exerciseIdx] = { ...newLogs[exerciseIdx], sets: newSets };
+    setWorkout({ ...workout, logs: newLogs });
+    restElapsedBeforeEditRef.current = 0;
+    setEditModal(false);
+    showToast('Satz korrigiert', 'info');
+  };
+
+  const cancelEdit = () => {
+    // Restore timer if it was running before
+    if (restElapsedBeforeEditRef.current > 0) {
+      restStartRef.current = Date.now() - restElapsedBeforeEditRef.current;
+      setRestDisplay(Math.floor(restElapsedBeforeEditRef.current / 1000));
+      setRestRunning(true);
+      scheduleRestNotification(restStartRef.current + exercise.restSec * 1000);
+    }
+    restElapsedBeforeEditRef.current = 0;
+    setEditModal(false);
+  };
+
   const skipExercise = () => {
     const newSkipped = [...skippedNames, exercise.name];
     setSkippedNames(newSkipped);
@@ -1369,7 +1417,7 @@ function WorkoutScreen({ workout, setWorkout, lastWeights, onFinish, onCancel, s
     setRestDisplay(0);
     setEarlyRestConfirm(false);
     cancelRestNotification();
-    setTimeout(() => window.scrollTo({ top: 0, behavior: 'instant' }), 50);
+    requestAnimationFrame(() => requestAnimationFrame(() => window.scrollTo({ top: 0, behavior: 'instant' })));
   };
   const trySkipRest = () => {
     const rec = exercise.restSec || 90;
@@ -1406,6 +1454,39 @@ function WorkoutScreen({ workout, setWorkout, lastWeights, onFinish, onCancel, s
               <button onClick={skipExercise}
                 className="flex-1 bg-orange-600 text-white font-mono text-sm py-3 rounded-lg flex items-center justify-center gap-2">
                 <Forward className="w-4 h-4" /> Überspringen
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {editModal && (
+        <div className="fixed inset-0 bg-zinc-950/95 z-50 flex items-center justify-center p-4">
+          <div className="bg-zinc-900 border border-zinc-800 rounded-2xl p-6 max-w-sm w-full">
+            <div className="font-display text-xl text-zinc-100 mb-1">SATZ KORRIGIEREN</div>
+            <div className="font-mono text-xs text-zinc-500 mb-5">
+              Satz {logs[exerciseIdx].sets.length} · {exercise.name}
+            </div>
+            <div className="grid grid-cols-2 gap-3 mb-5">
+              <div>
+                <label className="font-mono text-xs text-zinc-500 block mb-1">Gewicht (kg)</label>
+                <input type="number" inputMode="decimal" value={editWeight} onChange={e => setEditWeight(e.target.value)} autoFocus
+                  className="w-full bg-zinc-950 border border-zinc-700 rounded-lg px-3 py-3 text-2xl font-display text-zinc-100 focus:border-red-500 focus:outline-none" />
+              </div>
+              <div>
+                <label className="font-mono text-xs text-zinc-500 block mb-1">Wiederholungen</label>
+                <input type="number" inputMode="numeric" value={editReps} onChange={e => setEditReps(e.target.value)}
+                  className="w-full bg-zinc-950 border border-zinc-700 rounded-lg px-3 py-3 text-2xl font-display text-zinc-100 focus:border-red-500 focus:outline-none" />
+              </div>
+            </div>
+            <div className="flex gap-2">
+              <button onClick={cancelEdit}
+                className="flex-1 bg-zinc-800 text-zinc-300 font-mono text-sm py-3 rounded-xl">
+                Abbrechen
+              </button>
+              <button onClick={confirmEdit}
+                className="flex-1 bg-red-600 text-white font-display text-base py-3 rounded-xl flex items-center justify-center gap-2">
+                <Check className="w-4 h-4" /> Speichern
               </button>
             </div>
           </div>
@@ -1518,10 +1599,16 @@ function WorkoutScreen({ workout, setWorkout, lastWeights, onFinish, onCancel, s
 
         {completedSets.length > 0 && (
           <div className="mb-6">
-            <div className="font-mono text-xs text-zinc-500 uppercase mb-2">Erledigt</div>
+            <div className="flex items-center justify-between mb-2">
+              <div className="font-mono text-xs text-zinc-500 uppercase">Erledigt</div>
+              <button onClick={openEditModal}
+                className="flex items-center gap-1 font-mono text-xs text-zinc-600 hover:text-zinc-400 active:text-zinc-300 py-0.5 px-1">
+                <RotateCcw className="w-3 h-3" /> korrigieren
+              </button>
+            </div>
             <div className="space-y-1">
               {completedSets.map((s, i) => (
-                <div key={i} className="bg-zinc-900/50 rounded-lg px-4 py-2 flex justify-between text-sm font-mono">
+                <div key={i} className={`rounded-lg px-4 py-2 flex justify-between text-sm font-mono ${i === completedSets.length - 1 ? 'bg-zinc-800/80 border border-zinc-700/50' : 'bg-zinc-900/50'}`}>
                   <span className="text-zinc-500">Satz {i+1}</span>
                   <span className="text-zinc-300">{s.weight} kg × {s.reps}</span>
                 </div>
