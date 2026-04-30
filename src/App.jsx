@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { Dumbbell, Play, Pause, SkipForward, Check, Calendar, History, Home, X, Droplet, ChevronRight, ChevronDown, Clock, Flame, TrendingUp, Coffee, Timer, Heart, Activity, Sparkles, User, LogOut, AlertCircle, Users, Trophy, Zap, Plus, Minus, Camera, Upload, StickyNote, Forward, MessageCircle, Send, RotateCcw } from 'lucide-react';
+import { Dumbbell, Play, Pause, SkipForward, Check, Calendar, History, Home, X, Droplet, ChevronRight, ChevronDown, Clock, Flame, TrendingUp, Coffee, Timer, Heart, Activity, Sparkles, User, LogOut, AlertCircle, Users, Trophy, Zap, Plus, Minus, Camera, Upload, StickyNote, Forward, MessageCircle, Send, ArrowLeft } from 'lucide-react';
 import { findUserByName, getUserById, createUser, getLastWorkoutDate, getUserWorkouts, saveWorkout, rowToWorkout, computeLastWeights, getAllUsers, getActivityFeed, getAllLiveStatuses, setLiveStatus, clearLiveStatus, getReactionsForWorkouts, toggleReaction, getCommentsForWorkouts, addComment, computeUserStats, supabase, uploadAvatar, updateUserAvatar, saveUserPlan, getActivePlanForUser, parsePlanText, coachChat } from './supabase';
 import RELEASE_NOTES from './data/releaseNotes';
 
@@ -945,17 +945,17 @@ function ReleaseCard({ release, onDismiss }) {
             <span className="bg-red-600 text-white font-mono text-xs px-2 py-0.5 rounded-full uppercase tracking-widest">NEU</span>
             <span className="font-mono text-xs text-zinc-500">{release.version} · {release.date}</span>
           </div>
+          {release.thanks && (
+            <div className="font-mono text-xs text-zinc-400 mb-4">{release.thanks}</div>
+          )}
           <div className="space-y-3 mb-5">
             {release.highlights.map((h, i) => (
               <div key={i} className="flex items-start gap-3">
-                <div className="w-1.5 h-1.5 rounded-full bg-red-500 mt-1.5 shrink-0" />
+                <div className="w-1.5 h-1.5 rounded-full bg-zinc-600 mt-1.5 shrink-0" />
                 <div className="font-mono text-sm text-zinc-300 leading-snug">{h}</div>
               </div>
             ))}
           </div>
-          {release.thanks && (
-            <div className="font-mono text-xs text-zinc-500 italic mb-4">{release.thanks}</div>
-          )}
           <div className="font-display text-lg text-red-500 leading-tight mb-4">{release.motto.toUpperCase()}</div>
           <button onClick={onDismiss}
             className="w-full bg-zinc-800 text-zinc-400 font-mono text-xs py-2.5 rounded-lg">
@@ -1292,6 +1292,7 @@ function WorkoutScreen({ workout, setWorkout, lastWeights, onFinish, onCancel, s
   const { plan, exerciseIdx, setIdx, logs } = workout;
   const exercise = plan.exercises[exerciseIdx];
   const totalSets = exercise.sets;
+  const completedSets = logs[exerciseIdx].sets;
 
   // Update live status when exercise changes + keep-alive ping every 60s
   useEffect(() => {
@@ -1315,14 +1316,10 @@ function WorkoutScreen({ workout, setWorkout, lastWeights, onFinish, onCancel, s
   const [skippedNames, setSkippedNames] = useState(workout.skippedExercises || []);
   const [skipConfirm, setSkipConfirm] = useState(false);
   const [celebrating, setCelebrating] = useState(null); // { message, nextWorkout, nextExerciseName }
-  const [editModal, setEditModal] = useState(false);
-  const [editWeight, setEditWeight] = useState('');
-  const [editReps, setEditReps] = useState('');
   const lastDrinkRef = useRef(Date.now());
   const restRef = useRef(null);
   const restStartRef = useRef(null);
   const recReachedRef = useRef(false);
-  const restElapsedBeforeEditRef = useRef(0);
 
   // Scroll to top on mount (user may have scrolled down on previous screen)
   useEffect(() => { window.scrollTo({ top: 0, behavior: 'instant' }); }, []);
@@ -1407,42 +1404,31 @@ function WorkoutScreen({ workout, setWorkout, lastWeights, onFinish, onCancel, s
     }
   };
 
-  const openEditModal = () => {
-    // Save timer elapsed so Cancel can restore it
-    restElapsedBeforeEditRef.current = (restRunning && restStartRef.current)
-      ? Date.now() - restStartRef.current
-      : 0;
-    setRestRunning(false);
-    restStartRef.current = null;
-    cancelRestNotification();
-    const lastSet = logs[exerciseIdx].sets[logs[exerciseIdx].sets.length - 1];
-    setEditWeight(String(lastSet.weight));
-    setEditReps(String(lastSet.reps));
-    setEditModal(true);
-  };
+  const canGoBack = completedSets.length > 0 || exerciseIdx > 0;
 
-  const confirmEdit = () => {
-    if (!editWeight || !editReps) { showToast('Gewicht und Wdh. eingeben', 'info'); return; }
-    const newLogs = [...logs];
-    const newSets = [...newLogs[exerciseIdx].sets];
-    newSets[newSets.length - 1] = { weight: parseFloat(editWeight), reps: parseInt(editReps) };
-    newLogs[exerciseIdx] = { ...newLogs[exerciseIdx], sets: newSets };
-    setWorkout({ ...workout, logs: newLogs });
-    restElapsedBeforeEditRef.current = 0;
-    setEditModal(false);
-    showToast('Satz korrigiert', 'info');
-  };
-
-  const cancelEdit = () => {
-    // Restore timer if it was running before
-    if (restElapsedBeforeEditRef.current > 0) {
-      restStartRef.current = Date.now() - restElapsedBeforeEditRef.current;
-      setRestDisplay(Math.floor(restElapsedBeforeEditRef.current / 1000));
-      setRestRunning(true);
-      scheduleRestNotification(restStartRef.current + exercise.restSec * 1000);
+  const goBack = () => {
+    // Stop timer if running
+    if (restRunning) {
+      setRestRunning(false);
+      restStartRef.current = null;
+      setRestDisplay(0);
+      cancelRestNotification();
     }
-    restElapsedBeforeEditRef.current = 0;
-    setEditModal(false);
+    const newLogs = [...logs];
+    if (completedSets.length > 0) {
+      // Undo last set of current exercise
+      const newSets = [...newLogs[exerciseIdx].sets];
+      newSets.pop();
+      newLogs[exerciseIdx] = { ...newLogs[exerciseIdx], sets: newSets };
+      setWorkout({ ...workout, logs: newLogs, setIdx: setIdx - 1 });
+    } else if (exerciseIdx > 0) {
+      // Go back to previous exercise, undo its last set
+      const prevIdx = exerciseIdx - 1;
+      const prevSets = [...newLogs[prevIdx].sets];
+      prevSets.pop();
+      newLogs[prevIdx] = { ...newLogs[prevIdx], sets: prevSets };
+      setWorkout({ ...workout, logs: newLogs, exerciseIdx: prevIdx, setIdx: prevSets.length });
+    }
   };
 
   const skipExercise = () => {
@@ -1495,12 +1481,14 @@ function WorkoutScreen({ workout, setWorkout, lastWeights, onFinish, onCancel, s
     if (restDisplay < rec) { setEarlyRestConfirm(true); } else { doSkipRest(); }
   };
   const fmt = (s) => `${Math.floor(s/60)}:${String(s%60).padStart(2,'0')}`;
-  const completedSets = logs[exerciseIdx].sets;
 
   return (
     <div className="min-h-screen flex flex-col">
       <div className="pt-2 pb-3 flex items-center justify-between">
-        <div className="w-6"></div>
+        <button onClick={goBack} disabled={!canGoBack}
+          className={`p-1 transition-colors ${canGoBack ? 'text-zinc-400 active:text-zinc-200' : 'text-zinc-800'}`}>
+          <ArrowLeft className="w-6 h-6" />
+        </button>
         <div className="font-mono text-xs text-zinc-500">Übung {exerciseIdx + 1} / {plan.exercises.length}</div>
         <button onClick={onCancel} className="text-zinc-500"><X className="w-6 h-6" /></button>
       </div>
@@ -1525,39 +1513,6 @@ function WorkoutScreen({ workout, setWorkout, lastWeights, onFinish, onCancel, s
               <button onClick={skipExercise}
                 className="flex-1 bg-orange-600 text-white font-mono text-sm py-3 rounded-lg flex items-center justify-center gap-2">
                 <Forward className="w-4 h-4" /> Überspringen
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {editModal && (
-        <div className="fixed inset-0 bg-zinc-950/95 z-50 flex items-center justify-center p-4">
-          <div className="bg-zinc-900 border border-zinc-800 rounded-2xl p-6 max-w-sm w-full">
-            <div className="font-display text-xl text-zinc-100 mb-1">SATZ KORRIGIEREN</div>
-            <div className="font-mono text-xs text-zinc-500 mb-5">
-              Satz {logs[exerciseIdx].sets.length} · {exercise.name}
-            </div>
-            <div className="grid grid-cols-2 gap-3 mb-5">
-              <div>
-                <label className="font-mono text-xs text-zinc-500 block mb-1">Gewicht (kg)</label>
-                <input type="number" inputMode="decimal" value={editWeight} onChange={e => setEditWeight(e.target.value)} autoFocus
-                  className="w-full bg-zinc-950 border border-zinc-700 rounded-lg px-3 py-3 text-2xl font-display text-zinc-100 focus:border-red-500 focus:outline-none" />
-              </div>
-              <div>
-                <label className="font-mono text-xs text-zinc-500 block mb-1">Wiederholungen</label>
-                <input type="number" inputMode="numeric" value={editReps} onChange={e => setEditReps(e.target.value)}
-                  className="w-full bg-zinc-950 border border-zinc-700 rounded-lg px-3 py-3 text-2xl font-display text-zinc-100 focus:border-red-500 focus:outline-none" />
-              </div>
-            </div>
-            <div className="flex gap-2">
-              <button onClick={cancelEdit}
-                className="flex-1 bg-zinc-800 text-zinc-300 font-mono text-sm py-3 rounded-xl">
-                Abbrechen
-              </button>
-              <button onClick={confirmEdit}
-                className="flex-1 bg-red-600 text-white font-display text-base py-3 rounded-xl flex items-center justify-center gap-2">
-                <Check className="w-4 h-4" /> Speichern
               </button>
             </div>
           </div>
@@ -1670,12 +1625,8 @@ function WorkoutScreen({ workout, setWorkout, lastWeights, onFinish, onCancel, s
 
         {completedSets.length > 0 && (
           <div className="mb-6">
-            <div className="flex items-center justify-between mb-2">
+            <div className="mb-2">
               <div className="font-mono text-xs text-zinc-500 uppercase">Erledigt</div>
-              <button onClick={openEditModal}
-                className="flex items-center gap-1 font-mono text-xs text-zinc-600 hover:text-zinc-400 active:text-zinc-300 py-0.5 px-1">
-                <RotateCcw className="w-3 h-3" /> korrigieren
-              </button>
             </div>
             <div className="space-y-1">
               {completedSets.map((s, i) => (
