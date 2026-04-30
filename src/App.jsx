@@ -907,11 +907,30 @@ async function requestNotifPermission() {
   } catch (_) {}
 }
 
+// Play a short beep using Web Audio API (works on iOS PWA)
+function playBeep() {
+  try {
+    const ctx = new (window.AudioContext || window.webkitAudioContext)();
+    const osc = ctx.createOscillator();
+    const gain = ctx.createGain();
+    osc.connect(gain);
+    gain.connect(ctx.destination);
+    osc.type = 'sine';
+    osc.frequency.setValueAtTime(880, ctx.currentTime);
+    gain.gain.setValueAtTime(0.4, ctx.currentTime);
+    gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.5);
+    osc.start(ctx.currentTime);
+    osc.stop(ctx.currentTime + 0.5);
+    ctx.close();
+  } catch (_) {}
+}
+
 async function scheduleRestNotification(endAt) {
   try {
-    if (!('serviceWorker' in navigator) || Notification.permission !== 'granted') return;
+    if (!('serviceWorker' in navigator)) return;
     const reg = await navigator.serviceWorker.ready;
-    reg.active?.postMessage({ type: 'SCHEDULE_NOTIFICATION', id: 'rest-timer', endAt, title: 'Pause vorbei!', body: 'Nächster Satz – los geht\'s 💪' });
+    if (!reg.active) return;
+    reg.active.postMessage({ type: 'SCHEDULE_NOTIFICATION', id: 'rest-timer', endAt, title: 'Pause vorbei!', body: 'Nächster Satz – los geht\'s 💪' });
   } catch (_) {}
 }
 
@@ -974,6 +993,7 @@ function WorkoutScreen({ workout, setWorkout, lastWeights, onFinish, onCancel, s
         setRestRunning(false);
         setRestEndAt(null);
         showToast('Pause vorbei – nächster Satz!', 'info');
+        playBeep();
         if (navigator.vibrate) navigator.vibrate([200, 100, 200]);
         cancelRestNotification();
       }
@@ -1111,10 +1131,11 @@ function WorkoutScreen({ workout, setWorkout, lastWeights, onFinish, onCancel, s
       )}
 
       {restRunning && (
-        <div className="fixed inset-0 bg-zinc-950/95 z-40 flex flex-col items-center justify-center p-4">
+        <div className="fixed inset-0 bg-zinc-950/95 z-40 flex flex-col items-center justify-center"
+          style={{ paddingTop: 'env(safe-area-inset-top)', paddingBottom: 'env(safe-area-inset-bottom)', paddingLeft: '1rem', paddingRight: '1rem' }}>
           <div className="font-mono text-xs text-zinc-500 uppercase tracking-widest mb-4">Pause</div>
-          <div className="font-display text-9xl text-red-500 mb-8">{fmt(restDisplay)}</div>
-          <div className="text-zinc-400 mb-8 text-center">Nächster Satz: <span className="text-zinc-100 font-bold">{exercise.name}</span></div>
+          <div className="font-display text-8xl text-red-500 mb-6">{fmt(restDisplay)}</div>
+          <div className="text-zinc-400 mb-8 text-center text-sm">Nächster Satz: <span className="text-zinc-100 font-bold">{exercise.name}</span></div>
           <div className="flex gap-3">
             <button onClick={() => { const newEnd = (restEndAt || Date.now()) + 30000; setRestEndAt(newEnd); scheduleRestNotification(newEnd); }} className="bg-zinc-800 px-5 py-3 rounded-xl font-mono text-sm">+30s</button>
             <button onClick={skipRest} className="bg-red-600 px-6 py-3 rounded-xl font-mono text-sm flex items-center gap-2">
