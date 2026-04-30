@@ -43,6 +43,12 @@ const MOTIVATION_QUOTES = [
   { text: 'The mind always fails first, not the body.', author: 'Arnold Schwarzenegger' },
 ];
 
+const CHEER_MESSAGES = [
+  'STARK! 💪', 'BOOM! 🔥', 'GEILE EINHEIT!', 'LION KING! 🦁',
+  'WEITER SO!', 'BEAST MODE!', 'DOER! ⚡', 'SO GEHT DAS!',
+  'KILLER SATZ! 🔥', 'MAKER!', 'NICHT AUFHÖREN!', 'WEITER, WEITER!',
+];
+
 // ===== TRAINING PLAN =====
 const DEFAULT_PLAN = {
   push: {
@@ -622,6 +628,123 @@ function NavBtn({ icon: Icon, label, active, onClick }) {
   );
 }
 
+const SPARKS = [
+  { top: '12%', left:  '7%', char: '✦', color: '#ef4444', delay: '0ms',   size: 22 },
+  { top: '10%', left: '88%', char: '⚡', color: '#f97316', delay: '80ms',  size: 18 },
+  { top: '22%', left: '94%', char: '✦', color: '#ffffff', delay: '180ms', size: 14 },
+  { top: '68%', left:  '4%', char: '★', color: '#ef4444', delay: '120ms', size: 18 },
+  { top: '78%', left: '91%', char: '✦', color: '#f97316', delay: '40ms',  size: 24 },
+  { top: '44%', left:  '2%', char: '⚡', color: '#ffffff', delay: '220ms', size: 16 },
+  { top: '58%', left: '96%', char: '★', color: '#ef4444', delay: '160ms', size: 14 },
+  { top: '87%', left: '18%', char: '✦', color: '#f97316', delay: '100ms', size: 20 },
+  { top: '82%', left: '75%', char: '⚡', color: '#ffffff', delay: '260ms', size: 16 },
+  { top:  '5%', left: '50%', char: '★', color: '#ef4444', delay: '50ms',  size: 18 },
+];
+
+function CelebrationOverlay({ message, nextExercise, onDone }) {
+  const [fading, setFading] = React.useState(false);
+
+  React.useEffect(() => {
+    // Escalating vibration: short pulses → longer bursts over 3 seconds
+    if (navigator.vibrate) {
+      navigator.vibrate([
+        80, 60,          // beat 1
+        100, 50,         // beat 2
+        120, 40,         // beat 3
+        150, 35,         // beat 4
+        180, 30,         // beat 5
+        220, 25,         // beat 6 – climax
+        300,             // long final buzz
+      ]);
+    }
+    const t1 = setTimeout(() => setFading(true), 3200);
+    const t2 = setTimeout(onDone, 4000);
+    return () => {
+      clearTimeout(t1); clearTimeout(t2);
+      if (navigator.vibrate) navigator.vibrate(0);
+    };
+  }, []);
+
+  const handleTap = () => {
+    if (!fading) {
+      if (navigator.vibrate) navigator.vibrate(0);
+      setFading(true);
+      setTimeout(onDone, 600);
+    }
+  };
+
+  return (
+    <div
+      onClick={handleTap}
+      className="fixed inset-0 z-50 flex flex-col items-center justify-center overflow-hidden select-none"
+      style={{
+        background: 'radial-gradient(ellipse at 50% 38%, #3f0a0a 0%, #0c0101 55%, #0a0a0a 100%)',
+        opacity: fading ? 0 : 1,
+        transition: 'opacity 0.7s ease',
+        paddingTop: 'env(safe-area-inset-top)',
+        paddingBottom: 'env(safe-area-inset-bottom)',
+      }}
+    >
+      {/* Fire border — inset box-shadow rings around the whole screen */}
+      <div style={{
+        position: 'absolute', inset: 0, pointerEvents: 'none', borderRadius: 0,
+        animation: 'fireEdge 4s ease-in-out both',
+      }} />
+
+      {SPARKS.map((s, i) => (
+        <div key={i} style={{
+          position: 'absolute', top: s.top, left: s.left,
+          fontSize: s.size, color: s.color, pointerEvents: 'none',
+          animation: `celebSpark 2s ease-out ${s.delay} both`,
+        }}>
+          {s.char}
+        </div>
+      ))}
+
+      {/* Check circle with pulse */}
+      <div style={{ animation: 'celebScale 0.38s cubic-bezier(0.34,1.56,0.64,1) both' }}>
+        <div style={{
+          width: 80, height: 80, borderRadius: '50%',
+          border: '2px solid #ef4444',
+          background: 'rgba(239,68,68,0.12)',
+          display: 'flex', alignItems: 'center', justifyContent: 'center',
+          marginBottom: 28,
+          animation: 'celebPulse 1s ease-in-out 0.4s 3',
+        }}>
+          <svg width="38" height="38" viewBox="0 0 24 24" fill="none"
+            stroke="#f87171" strokeWidth={2.5} strokeLinecap="round" strokeLinejoin="round">
+            <path d="M5 13l4 4L19 7" />
+          </svg>
+        </div>
+      </div>
+
+      {/* Cheer message */}
+      <div className="font-display text-center text-white"
+        style={{
+          fontSize: 'clamp(2.8rem, 13vw, 4.5rem)',
+          lineHeight: 1.1,
+          paddingLeft: '1.5rem', paddingRight: '1.5rem',
+          textShadow: '0 0 50px rgba(239,68,68,0.6), 0 0 100px rgba(239,68,68,0.2)',
+          animation: 'celebScale 0.42s cubic-bezier(0.34,1.56,0.64,1) 0.07s both',
+        }}>
+        {message}
+      </div>
+
+      {nextExercise && (
+        <div className="font-mono text-zinc-400 text-xs mt-5 uppercase tracking-widest"
+          style={{ animation: 'celebFadeUp 0.4s ease 0.35s both' }}>
+          Weiter: {nextExercise}
+        </div>
+      )}
+
+      <div className="font-mono text-zinc-700 text-xs absolute bottom-10"
+        style={{ animation: 'celebFadeUp 0.3s ease 1s both' }}>
+        tippen zum überspringen
+      </div>
+    </div>
+  );
+}
+
 function WorkoutCompleteModal({ data, onClose }) {
   const q = MOTIVATION_QUOTES.filter(q => q.author === 'Markus Rühl')[new Date().getDate() % MOTIVATION_QUOTES.filter(q => q.author === 'Markus Rühl').length];
   const [note, setNote] = React.useState('');
@@ -992,6 +1115,7 @@ function WorkoutScreen({ workout, setWorkout, lastWeights, onFinish, onCancel, s
   const [restRunning, setRestRunning] = useState(false);
   const [skippedNames, setSkippedNames] = useState(workout.skippedExercises || []);
   const [skipConfirm, setSkipConfirm] = useState(false);
+  const [celebrating, setCelebrating] = useState(null); // { message, nextWorkout, nextExerciseName }
   const lastDrinkRef = useRef(Date.now());
   const restRef = useRef(null);
   const restFiredRef = useRef(false);
@@ -1053,9 +1177,15 @@ function WorkoutScreen({ workout, setWorkout, lastWeights, onFinish, onCancel, s
       return;
     }
     if (isLastSet) {
-      setWorkout({ ...workout, logs: newLogs, exerciseIdx: exerciseIdx + 1, setIdx: 0 });
+      // Show celebration before advancing to next exercise
+      const msg = CHEER_MESSAGES[Math.floor(Math.random() * CHEER_MESSAGES.length)];
+      const nextEx = plan.exercises[exerciseIdx + 1];
+      setCelebrating({
+        message: msg,
+        nextExerciseName: nextEx?.name,
+        nextWorkout: { ...workout, logs: newLogs, exerciseIdx: exerciseIdx + 1, setIdx: 0 },
+      });
       setReps(''); setWeight('');
-      showToast('Übung abgeschlossen!', 'check');
     } else {
       setWorkout({ ...workout, logs: newLogs, setIdx: setIdx + 1 });
       setReps('');
@@ -1094,7 +1224,14 @@ function WorkoutScreen({ workout, setWorkout, lastWeights, onFinish, onCancel, s
     setRestEndAt(null);
     setRestDisplay(0);
     cancelRestNotification();
+    window.scrollTo({ top: 0, behavior: 'instant' });
     showToast(`${exercise.name} übersprungen`, 'info');
+  };
+
+  const onCelebrationDone = () => {
+    setWorkout(celebrating.nextWorkout);
+    setCelebrating(null);
+    window.scrollTo({ top: 0, behavior: 'instant' });
   };
 
   const skipRest = () => { setRestRunning(false); setRestEndAt(null); setRestDisplay(0); cancelRestNotification(); };
@@ -1133,6 +1270,14 @@ function WorkoutScreen({ workout, setWorkout, lastWeights, onFinish, onCancel, s
             </div>
           </div>
         </div>
+      )}
+
+      {celebrating && (
+        <CelebrationOverlay
+          message={celebrating.message}
+          nextExercise={celebrating.nextExerciseName}
+          onDone={onCelebrationDone}
+        />
       )}
 
       {restRunning && (
