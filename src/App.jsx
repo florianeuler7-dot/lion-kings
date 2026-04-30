@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { Dumbbell, Play, Pause, SkipForward, Check, Calendar, History, Home, X, Droplet, ChevronRight, Clock, Flame, TrendingUp, Coffee, Timer, Heart, Activity, Sparkles, User, LogOut, AlertCircle, Users, Trophy, Zap, Plus, Minus, Camera, Upload, StickyNote, Forward, MessageCircle, Send } from 'lucide-react';
+import { Dumbbell, Play, Pause, SkipForward, Check, Calendar, History, Home, X, Droplet, ChevronRight, ChevronDown, Clock, Flame, TrendingUp, Coffee, Timer, Heart, Activity, Sparkles, User, LogOut, AlertCircle, Users, Trophy, Zap, Plus, Minus, Camera, Upload, StickyNote, Forward, MessageCircle, Send } from 'lucide-react';
 import { findUserByName, getUserById, createUser, getLastWorkoutDate, getUserWorkouts, saveWorkout, rowToWorkout, computeLastWeights, getAllUsers, getActivityFeed, getAllLiveStatuses, setLiveStatus, clearLiveStatus, getReactionsForWorkouts, toggleReaction, getCommentsForWorkouts, addComment, computeUserStats, supabase, uploadAvatar, updateUserAvatar, saveUserPlan, getActivePlanForUser, parsePlanText, coachChat } from './supabase';
 
 // ===== HELPERS =====
@@ -394,7 +394,7 @@ export default function App() {
     if (!plan.exercises.length) return;
     setActiveWorkout({
       planKey, plan, exerciseIdx: 0, setIdx: 0,
-      logs: plan.exercises.map(ex => ({ name: ex.name, sets: [] })),
+      logs: plan.exercises.map(ex => ({ name: ex.name, sets: [], note: '' })),
       startTime: Date.now(),
     });
     setScreen('workout');
@@ -909,11 +909,30 @@ async function requestNotifPermission() {
   } catch (_) {}
 }
 
+// Play a short beep using Web Audio API (works on iOS PWA)
+function playBeep() {
+  try {
+    const ctx = new (window.AudioContext || window.webkitAudioContext)();
+    const osc = ctx.createOscillator();
+    const gain = ctx.createGain();
+    osc.connect(gain);
+    gain.connect(ctx.destination);
+    osc.type = 'sine';
+    osc.frequency.setValueAtTime(880, ctx.currentTime);
+    gain.gain.setValueAtTime(0.4, ctx.currentTime);
+    gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.5);
+    osc.start(ctx.currentTime);
+    osc.stop(ctx.currentTime + 0.5);
+    ctx.close();
+  } catch (_) {}
+}
+
 async function scheduleRestNotification(endAt) {
   try {
-    if (!('serviceWorker' in navigator) || Notification.permission !== 'granted') return;
+    if (!('serviceWorker' in navigator)) return;
     const reg = await navigator.serviceWorker.ready;
-    reg.active?.postMessage({ type: 'SCHEDULE_NOTIFICATION', id: 'rest-timer', endAt, title: 'Pause vorbei!', body: 'Nächster Satz – los geht\'s 💪' });
+    if (!reg.active) return;
+    reg.active.postMessage({ type: 'SCHEDULE_NOTIFICATION', id: 'rest-timer', endAt, title: 'Pause vorbei!', body: 'Nächster Satz – los geht\'s 💪' });
   } catch (_) {}
 }
 
@@ -940,6 +959,7 @@ function WorkoutScreen({ workout, setWorkout, lastWeights, onFinish, onCancel, s
   useWakeLock();
   useEffect(() => { requestNotifPermission(); }, []);
 
+  const [exerciseNote, setExerciseNote] = useState(logs[exerciseIdx].note || '');
   const [weight, setWeight] = useState('');
   const [reps, setReps] = useState('');
   const [restEndAt, setRestEndAt] = useState(null); // timestamp when pause ends
@@ -975,6 +995,7 @@ function WorkoutScreen({ workout, setWorkout, lastWeights, onFinish, onCancel, s
         setRestRunning(false);
         setRestEndAt(null);
         showToast('Pause vorbei – nächster Satz!', 'info');
+        playBeep();
         if (navigator.vibrate) navigator.vibrate([200, 100, 200]);
         cancelRestNotification();
       }
@@ -988,6 +1009,7 @@ function WorkoutScreen({ workout, setWorkout, lastWeights, onFinish, onCancel, s
     if (lastWeights[exercise.name] && !weight) {
       setWeight(String(lastWeights[exercise.name]));
     }
+    setExerciseNote(logs[exerciseIdx].note || '');
   }, [exerciseIdx]);
 
   const logSet = () => {
@@ -997,6 +1019,7 @@ function WorkoutScreen({ workout, setWorkout, lastWeights, onFinish, onCancel, s
       return;
     }
     const newLogs = [...logs];
+    newLogs[exerciseIdx] = { ...newLogs[exerciseIdx], note: exerciseNote };
     newLogs[exerciseIdx].sets.push({ weight: parseFloat(weight), reps: parseInt(reps) });
 
     const isLastSet = setIdx + 1 >= totalSets;
@@ -1026,12 +1049,15 @@ function WorkoutScreen({ workout, setWorkout, lastWeights, onFinish, onCancel, s
     setSkippedNames(newSkipped);
     setSkipConfirm(false);
 
+    // Save current exercise note before moving on
+    const savedLogs = [...logs];
+    savedLogs[exerciseIdx] = { ...savedLogs[exerciseIdx], note: exerciseNote };
+
     const isLastExercise = exerciseIdx + 1 >= plan.exercises.length;
     if (isLastExercise) {
-      // If last exercise: finish if there's any logged data, else just cancel
-      const hasAnyData = logs.some(l => l.sets.length > 0);
+      const hasAnyData = savedLogs.some(l => l.sets.length > 0);
       if (hasAnyData) {
-        onFinish(logs, { notes, skippedExercises: newSkipped });
+        onFinish(savedLogs, { notes, skippedExercises: newSkipped });
       } else {
         showToast('Keine Daten erfasst', 'info');
         onCancel();
@@ -1039,10 +1065,12 @@ function WorkoutScreen({ workout, setWorkout, lastWeights, onFinish, onCancel, s
       return;
     }
 
-    setWorkout({ ...workout, exerciseIdx: exerciseIdx + 1, setIdx: 0 });
+    setWorkout({ ...workout, logs: savedLogs, exerciseIdx: exerciseIdx + 1, setIdx: 0 });
     setReps(''); setWeight('');
     setRestRunning(false);
-    setRestTime(0);
+    setRestEndAt(null);
+    setRestDisplay(0);
+    cancelRestNotification();
     showToast(`${exercise.name} übersprungen`, 'info');
   };
 
@@ -1105,10 +1133,11 @@ function WorkoutScreen({ workout, setWorkout, lastWeights, onFinish, onCancel, s
       )}
 
       {restRunning && (
-        <div className="fixed inset-0 bg-zinc-950/95 z-40 flex flex-col items-center justify-center p-4">
+        <div className="fixed inset-0 bg-zinc-950/95 z-40 flex flex-col items-center justify-center"
+          style={{ paddingTop: 'env(safe-area-inset-top)', paddingBottom: 'env(safe-area-inset-bottom)', paddingLeft: '1rem', paddingRight: '1rem' }}>
           <div className="font-mono text-xs text-zinc-500 uppercase tracking-widest mb-4">Pause</div>
-          <div className="font-display text-9xl text-red-500 mb-8">{fmt(restDisplay)}</div>
-          <div className="text-zinc-400 mb-8 text-center">Nächster Satz: <span className="text-zinc-100 font-bold">{exercise.name}</span></div>
+          <div className="font-display text-8xl text-red-500 mb-6">{fmt(restDisplay)}</div>
+          <div className="text-zinc-400 mb-8 text-center text-sm">Nächster Satz: <span className="text-zinc-100 font-bold">{exercise.name}</span></div>
           <div className="flex gap-3">
             <button onClick={() => { const newEnd = (restEndAt || Date.now()) + 30000; setRestEndAt(newEnd); scheduleRestNotification(newEnd); }} className="bg-zinc-800 px-5 py-3 rounded-xl font-mono text-sm">+30s</button>
             <button onClick={skipRest} className="bg-red-600 px-6 py-3 rounded-xl font-mono text-sm flex items-center gap-2">
@@ -1184,12 +1213,23 @@ function WorkoutScreen({ workout, setWorkout, lastWeights, onFinish, onCancel, s
           <div className="flex items-center gap-2"><Droplet className="w-4 h-4" /> Trinken nicht vergessen</div>
         </div>
 
-        <div className="grid grid-cols-2 gap-2 mt-4">
+        {/* Per-exercise note — always visible */}
+        <div className="mt-3 mb-1">
+          <textarea
+            value={exerciseNote}
+            onChange={e => setExerciseNote(e.target.value)}
+            placeholder="Notiz zur Übung (optional)…"
+            rows={2}
+            className="w-full bg-zinc-900 border border-zinc-800 rounded-xl px-4 py-3 text-sm text-zinc-300 placeholder:text-zinc-600 focus:border-yellow-600/60 focus:outline-none resize-none"
+          />
+        </div>
+
+        <div className="grid grid-cols-2 gap-2 mt-2">
           <button onClick={() => setNotesOpen(!notesOpen)}
             className={`bg-zinc-900 hover:bg-zinc-800 border rounded-lg py-2.5 font-mono text-xs flex items-center justify-center gap-2 ${
               notes ? 'border-yellow-600/50 text-yellow-400' : 'border-zinc-800 text-zinc-400'
             }`}>
-            <StickyNote className="w-3 h-3" /> {notes ? 'Notiz bearbeiten' : 'Notiz hinzufügen'}
+            <StickyNote className="w-3 h-3" /> {notes ? 'Training-Notiz' : 'Training-Notiz'}
           </button>
           <button onClick={() => setSkipConfirm(true)}
             className="bg-zinc-900 hover:bg-zinc-800 border border-zinc-800 text-zinc-400 font-mono text-xs py-2.5 rounded-lg flex items-center justify-center gap-2">
@@ -1203,6 +1243,19 @@ function WorkoutScreen({ workout, setWorkout, lastWeights, onFinish, onCancel, s
 
 function HistoryScreen({ history }) {
   const entries = [...history].sort((a, b) => new Date(b.date) - new Date(a.date));
+  const [expanded, setExpanded] = useState(new Set());
+
+  const toggle = (id) => setExpanded(prev => {
+    const next = new Set(prev);
+    if (next.has(id)) next.delete(id); else next.add(id);
+    return next;
+  });
+
+  const allExpanded = entries.length > 0 && entries.every(e => expanded.has(e.id));
+  const toggleAll = () => {
+    if (allExpanded) setExpanded(new Set());
+    else setExpanded(new Set(entries.map(e => e.id)));
+  };
 
   if (!entries || entries.length === 0) {
     return (
@@ -1222,63 +1275,91 @@ function HistoryScreen({ history }) {
 
   return (
     <div className="pt-8">
-      <div className="mb-6">
-        <div className="font-mono text-xs text-zinc-500 uppercase tracking-widest mb-1">Trainings-Verlauf</div>
-        <h1 className="font-display text-5xl text-zinc-100">HISTORY</h1>
+      <div className="mb-6 flex items-end justify-between">
+        <div>
+          <div className="font-mono text-xs text-zinc-500 uppercase tracking-widest mb-1">Trainings-Verlauf</div>
+          <h1 className="font-display text-5xl text-zinc-100">HISTORY</h1>
+        </div>
+        <button onClick={toggleAll} className="font-mono text-xs text-zinc-500 hover:text-zinc-300 pb-1">
+          {allExpanded ? 'Alle zuklappen' : 'Alle ausklappen'}
+        </button>
       </div>
       <div className="space-y-3">
-        {entries.map((e, i) => (
-          <div key={i} className="bg-zinc-900 rounded-xl p-5 border border-zinc-800">
-            <div className="flex items-start justify-between mb-3 gap-3">
-              <div className="flex-1 min-w-0">
-                <div className="font-display text-2xl leading-tight">{e.planName.toUpperCase()}</div>
-                <div className="font-mono text-xs text-zinc-500">{new Date(e.date).toLocaleDateString('de-DE', { weekday: 'long', day: '2-digit', month: 'long' })}</div>
-              </div>
-              {formatDuration(e.duration) && (
-                <div className="text-right shrink-0">
-                  <div className="font-display text-xl text-red-500 leading-tight">{formatDuration(e.duration)}</div>
-                </div>
-              )}
-            </div>
-            {e.isCardio ? (
-              <div className="flex items-center gap-2 text-sm font-mono text-zinc-400 pt-2 border-t border-zinc-800/50">
-                <Heart className="w-4 h-4 text-red-500" /> {formatDuration(e.duration) || '—'} Cardio absolviert
-              </div>
-            ) : e.isMobility ? (
-              <div className="flex items-center gap-2 text-sm font-mono text-zinc-400 pt-2 border-t border-zinc-800/50">
-                <Activity className="w-4 h-4 text-emerald-500" /> {e.completed} / {e.total} Mobility-Übungen
-              </div>
-            ) : (
-              <div className="space-y-1">
-                {e.logs.filter(l => l.sets.length > 0).map((l, j) => {
-                  const heaviest = Math.max(...l.sets.map(s => s.weight));
-                  return (
-                    <div key={j} className="flex justify-between text-sm font-mono py-1 border-t border-zinc-800/50">
-                      <span className="text-zinc-400">{l.name}</span>
-                      <span className="text-zinc-200">{l.sets.length} × {heaviest} kg</span>
-                    </div>
-                  );
-                })}
-                {e.skippedExercises && e.skippedExercises.length > 0 && (
-                  <div className="pt-2 border-t border-zinc-800/50 mt-2">
-                    <div className="font-mono text-xs text-orange-400 mb-1 flex items-center gap-1">
-                      <Forward className="w-3 h-3" /> Übersprungen
-                    </div>
-                    {e.skippedExercises.map((name, i) => (
-                      <div key={i} className="font-mono text-xs text-zinc-500">{name}</div>
-                    ))}
+        {entries.map((e) => {
+          const isOpen = expanded.has(e.id);
+          return (
+            <div key={e.id} className="bg-zinc-900 rounded-xl border border-zinc-800 overflow-hidden">
+              {/* Header — always visible, tap to toggle */}
+              <button
+                onClick={() => toggle(e.id)}
+                className="w-full p-5 flex items-center gap-3 text-left"
+              >
+                <div className="flex-1 min-w-0">
+                  <div className="font-display text-2xl leading-tight">{e.planName.toUpperCase()}</div>
+                  <div className="font-mono text-xs text-zinc-500 mt-0.5">
+                    {new Date(e.date).toLocaleDateString('de-DE', { weekday: 'long', day: '2-digit', month: 'long' })}
+                    {formatDuration(e.duration) ? ` · ${formatDuration(e.duration)}` : ''}
                   </div>
-                )}
+                </div>
+                <ChevronDown
+                  className="w-5 h-5 text-zinc-600 shrink-0 transition-transform duration-200"
+                  style={{ transform: isOpen ? 'rotate(180deg)' : 'rotate(0deg)' }}
+                />
+              </button>
+
+              {/* Detail — collapsable */}
+              <div style={{ maxHeight: isOpen ? 2000 : 0, overflow: 'hidden', transition: 'max-height 0.3s ease' }}>
+                <div className="px-5 pb-5 border-t border-zinc-800/60">
+                  {e.isCardio ? (
+                    <div className="flex items-center gap-2 text-sm font-mono text-zinc-400 pt-4">
+                      <Heart className="w-4 h-4 text-red-500" /> {formatDuration(e.duration) || '—'} Cardio absolviert
+                    </div>
+                  ) : e.isMobility ? (
+                    <div className="flex items-center gap-2 text-sm font-mono text-zinc-400 pt-4">
+                      <Activity className="w-4 h-4 text-emerald-500" /> {e.completed} / {e.total} Mobility-Übungen
+                    </div>
+                  ) : (
+                    <div className="space-y-2 pt-3">
+                      {e.logs.filter(l => l.sets.length > 0).map((l, j) => {
+                        const heaviest = Math.max(...l.sets.map(s => s.weight));
+                        return (
+                          <div key={j} className="py-2 border-t border-zinc-800/50 first:border-t-0 first:pt-0">
+                            <div className="flex justify-between text-sm font-mono">
+                              <span className="text-zinc-400">{l.name}</span>
+                              <span className="text-zinc-200">{l.sets.length} × {heaviest} kg</span>
+                            </div>
+                            {l.note && (
+                              <div className="flex items-start gap-1 mt-1">
+                                <StickyNote className="w-3 h-3 text-yellow-500/70 mt-0.5 shrink-0" />
+                                <span className="text-xs text-yellow-400/80 italic">{l.note}</span>
+                              </div>
+                            )}
+                          </div>
+                        );
+                      })}
+                      {e.skippedExercises && e.skippedExercises.length > 0 && (
+                        <div className="pt-2 border-t border-zinc-800/50">
+                          <div className="font-mono text-xs text-orange-400 mb-1 flex items-center gap-1">
+                            <Forward className="w-3 h-3" /> Übersprungen
+                          </div>
+                          {e.skippedExercises.map((name, k) => (
+                            <div key={k} className="font-mono text-xs text-zinc-500">{name}</div>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                  )}
+                  {e.notes && (
+                    <div className="mt-3 pt-3 border-t border-zinc-800/50 flex gap-2">
+                      <StickyNote className="w-4 h-4 text-yellow-400 shrink-0 mt-0.5" />
+                      <div className="text-xs text-zinc-300 italic">{e.notes}</div>
+                    </div>
+                  )}
+                </div>
               </div>
-            )}
-            {e.notes && (
-              <div className="mt-3 pt-3 border-t border-zinc-800/50 flex gap-2">
-                <StickyNote className="w-4 h-4 text-yellow-400 flex-shrink-0 mt-0.5" />
-                <div className="text-xs text-zinc-300 italic flex-1">{e.notes}</div>
-              </div>
-            )}
-          </div>
-        ))}
+            </div>
+          );
+        })}
       </div>
     </div>
   );
