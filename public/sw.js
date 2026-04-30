@@ -1,5 +1,5 @@
-// Minimal service worker for offline support
-const CACHE = 'bcal-v1';
+// Service worker – offline cache + scheduled notifications
+const CACHE = 'lionkings-v2';
 const ASSETS = ['/'];
 
 self.addEventListener('install', (e) => {
@@ -26,6 +26,53 @@ self.addEventListener('fetch', (e) => {
         return res;
       }).catch(() => cached);
       return cached || fetched;
+    })
+  );
+});
+
+// ── Scheduled notifications ──────────────────────────────────────────────────
+// App posts { type:'SCHEDULE_NOTIFICATION', id, endAt, title, body }
+// We fire showNotification() at the right moment (survives screen lock).
+const pending = new Map();
+
+self.addEventListener('message', (e) => {
+  const msg = e.data;
+  if (!msg) return;
+
+  if (msg.type === 'SCHEDULE_NOTIFICATION') {
+    const { id, endAt, title, body } = msg;
+    if (pending.has(id)) clearTimeout(pending.get(id));
+    const delay = Math.max(0, endAt - Date.now());
+    const timer = setTimeout(async () => {
+      pending.delete(id);
+      try {
+        await self.registration.showNotification(title, {
+          body,
+          icon: '/icon-192.png',
+          badge: '/icon-192.png',
+          vibrate: [200, 100, 200],
+          tag: id,
+          renotify: true,
+        });
+      } catch (_) {}
+    }, delay);
+    pending.set(id, timer);
+  }
+
+  if (msg.type === 'CANCEL_NOTIFICATION') {
+    if (pending.has(msg.id)) {
+      clearTimeout(pending.get(msg.id));
+      pending.delete(msg.id);
+    }
+  }
+});
+
+self.addEventListener('notificationclick', (e) => {
+  e.notification.close();
+  e.waitUntil(
+    clients.matchAll({ type: 'window', includeUncontrolled: true }).then(list => {
+      const win = list.find(c => c.url.startsWith(self.location.origin));
+      return win ? win.focus() : clients.openWindow('/');
     })
   );
 });

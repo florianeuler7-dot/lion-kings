@@ -880,6 +880,49 @@ function CustomWorkoutModal({ onSave, onClose }) {
   );
 }
 
+// ── Wake Lock: keeps screen on during active training ────────────────────────
+function useWakeLock() {
+  const ref = useRef(null);
+  useEffect(() => {
+    const acquire = async () => {
+      try {
+        if ('wakeLock' in navigator) ref.current = await navigator.wakeLock.request('screen');
+      } catch (_) {}
+    };
+    acquire();
+    const onVisible = () => { if (document.visibilityState === 'visible') acquire(); };
+    document.addEventListener('visibilitychange', onVisible);
+    return () => {
+      document.removeEventListener('visibilitychange', onVisible);
+      ref.current?.release().catch(() => {});
+    };
+  }, []);
+}
+
+// ── Notification helpers ──────────────────────────────────────────────────────
+async function requestNotifPermission() {
+  try {
+    if ('Notification' in window && Notification.permission === 'default')
+      await Notification.requestPermission();
+  } catch (_) {}
+}
+
+async function scheduleRestNotification(endAt) {
+  try {
+    if (!('serviceWorker' in navigator) || Notification.permission !== 'granted') return;
+    const reg = await navigator.serviceWorker.ready;
+    reg.active?.postMessage({ type: 'SCHEDULE_NOTIFICATION', id: 'rest-timer', endAt, title: 'Pause vorbei!', body: 'Nächster Satz – los geht\'s 💪' });
+  } catch (_) {}
+}
+
+async function cancelRestNotification() {
+  try {
+    if (!('serviceWorker' in navigator)) return;
+    const reg = await navigator.serviceWorker.ready;
+    reg.active?.postMessage({ type: 'CANCEL_NOTIFICATION', id: 'rest-timer' });
+  } catch (_) {}
+}
+
 function WorkoutScreen({ workout, setWorkout, lastWeights, onFinish, onCancel, showToast, user }) {
   const { plan, exerciseIdx, setIdx, logs } = workout;
   const exercise = plan.exercises[exerciseIdx];
@@ -892,9 +935,13 @@ function WorkoutScreen({ workout, setWorkout, lastWeights, onFinish, onCancel, s
     }
   }, [exerciseIdx, user]);
 
+  useWakeLock();
+  useEffect(() => { requestNotifPermission(); }, []);
+
   const [weight, setWeight] = useState('');
   const [reps, setReps] = useState('');
-  const [restTime, setRestTime] = useState(0);
+  const [restEndAt, setRestEndAt] = useState(null); // timestamp when pause ends
+  const [restDisplay, setRestDisplay] = useState(0); // seconds shown in UI
   const [restRunning, setRestRunning] = useState(false);
   const [notesOpen, setNotesOpen] = useState(false);
   const [notes, setNotes] = useState(workout.notes || '');
@@ -902,6 +949,7 @@ function WorkoutScreen({ workout, setWorkout, lastWeights, onFinish, onCancel, s
   const [skipConfirm, setSkipConfirm] = useState(false);
   const lastDrinkRef = useRef(Date.now());
   const restRef = useRef(null);
+  const restFiredRef = useRef(false);
 
   useEffect(() => {
     const interval = setInterval(() => {
@@ -913,17 +961,26 @@ function WorkoutScreen({ workout, setWorkout, lastWeights, onFinish, onCancel, s
     return () => clearInterval(interval);
   }, []);
 
+  // Timestamp-based rest timer — survives background/lock
   useEffect(() => {
-    if (restRunning && restTime > 0) {
-      restRef.current = setTimeout(() => setRestTime(t => t - 1), 1000);
-    } else if (restRunning && restTime === 0) {
-      setRestRunning(false);
-      showToast('Pause vorbei – nächster Satz!', 'info');
-      // Vibration if supported
-      if (navigator.vibrate) navigator.vibrate([200, 100, 200]);
-    }
-    return () => clearTimeout(restRef.current);
-  }, [restRunning, restTime]);
+    if (!restRunning || !restEndAt) return;
+    restFiredRef.current = false;
+    const tick = () => {
+      const remaining = Math.max(0, Math.ceil((restEndAt - Date.now()) / 1000));
+      setRestDisplay(remaining);
+      if (remaining === 0 && !restFiredRef.current) {
+        restFiredRef.current = true;
+        setRestRunning(false);
+        setRestEndAt(null);
+        showToast('Pause vorbei – nächster Satz!', 'info');
+        if (navigator.vibrate) navigator.vibrate([200, 100, 200]);
+        cancelRestNotification();
+      }
+    };
+    tick();
+    restRef.current = setInterval(tick, 250);
+    return () => clearInterval(restRef.current);
+  }, [restRunning, restEndAt]);
 
   useEffect(() => {
     if (lastWeights[exercise.name] && !weight) {
@@ -954,8 +1011,11 @@ function WorkoutScreen({ workout, setWorkout, lastWeights, onFinish, onCancel, s
     } else {
       setWorkout({ ...workout, logs: newLogs, setIdx: setIdx + 1 });
       setReps('');
-      setRestTime(exercise.restSec);
+      const endAt = Date.now() + exercise.restSec * 1000;
+      setRestEndAt(endAt);
+      setRestDisplay(exercise.restSec);
       setRestRunning(true);
+      scheduleRestNotification(endAt);
     }
   };
 
@@ -984,7 +1044,7 @@ function WorkoutScreen({ workout, setWorkout, lastWeights, onFinish, onCancel, s
     showToast(`${exercise.name} übersprungen`, 'info');
   };
 
-  const skipRest = () => { setRestRunning(false); setRestTime(0); };
+  const skipRest = () => { setRestRunning(false); setRestEndAt(null); setRestDisplay(0); cancelRestNotification(); };
   const fmt = (s) => `${Math.floor(s/60)}:${String(s%60).padStart(2,'0')}`;
   const completedSets = logs[exerciseIdx].sets;
 
@@ -1045,10 +1105,10 @@ function WorkoutScreen({ workout, setWorkout, lastWeights, onFinish, onCancel, s
       {restRunning && (
         <div className="fixed inset-0 bg-zinc-950/95 z-40 flex flex-col items-center justify-center p-4">
           <div className="font-mono text-xs text-zinc-500 uppercase tracking-widest mb-4">Pause</div>
-          <div className="font-display text-9xl text-red-500 mb-8">{fmt(restTime)}</div>
+          <div className="font-display text-9xl text-red-500 mb-8">{fmt(restDisplay)}</div>
           <div className="text-zinc-400 mb-8 text-center">Nächster Satz: <span className="text-zinc-100 font-bold">{exercise.name}</span></div>
           <div className="flex gap-3">
-            <button onClick={() => setRestTime(t => t + 30)} className="bg-zinc-800 px-5 py-3 rounded-xl font-mono text-sm">+30s</button>
+            <button onClick={() => { const newEnd = (restEndAt || Date.now()) + 30000; setRestEndAt(newEnd); scheduleRestNotification(newEnd); }} className="bg-zinc-800 px-5 py-3 rounded-xl font-mono text-sm">+30s</button>
             <button onClick={skipRest} className="bg-red-600 px-6 py-3 rounded-xl font-mono text-sm flex items-center gap-2">
               <SkipForward className="w-4 h-4" /> Weiter
             </button>
@@ -1308,12 +1368,17 @@ function PlanScreen({ plan: PLAN, schedule }) {
 }
 
 function CardioScreen({ onFinish, onCancel, showToast, user, combinedFlow }) {
+  useWakeLock();
+
   const [type, setType] = useState('zone2'); // 'zone2' | 'hiit'
   const [targetMin, setTargetMin] = useState(30);
-  const [elapsed, setElapsed] = useState(0); // seconds
+  const [elapsed, setElapsed] = useState(0); // seconds, display only
   const [running, setRunning] = useState(false);
   const lastDrinkRef = useRef(Date.now());
   const intervalRef = useRef(null);
+  const startAtRef = useRef(null);     // timestamp when current run-period began
+  const accumulatedRef = useRef(0);   // seconds accumulated before current period
+  const targetReachedRef = useRef(false);
 
   // Set live status when running starts
   useEffect(() => {
@@ -1323,11 +1388,12 @@ function CardioScreen({ onFinish, onCancel, showToast, user, combinedFlow }) {
     }
   }, [running, Math.floor(elapsed / 60), type, targetMin, user]);
 
-  // Tick every second when running
+  // Timestamp-based tick — survives background/lock
   useEffect(() => {
-    if (running) {
-      intervalRef.current = setInterval(() => setElapsed(e => e + 1), 1000);
-    }
+    if (!running) return;
+    const tick = () => setElapsed(accumulatedRef.current + Math.floor((Date.now() - startAtRef.current) / 1000));
+    tick();
+    intervalRef.current = setInterval(tick, 250);
     return () => clearInterval(intervalRef.current);
   }, [running]);
 
@@ -1343,9 +1409,11 @@ function CardioScreen({ onFinish, onCancel, showToast, user, combinedFlow }) {
     return () => clearInterval(interval);
   }, [running]);
 
-  // Notify when target reached
+  // Notify when target reached (use ref to fire only once per target)
+  useEffect(() => { targetReachedRef.current = false; }, [targetMin]);
   useEffect(() => {
-    if (running && elapsed === targetMin * 60) {
+    if (running && elapsed >= targetMin * 60 && !targetReachedRef.current) {
+      targetReachedRef.current = true;
       showToast(`${targetMin} Min erreicht – stark!`, 'check');
       if (navigator.vibrate) navigator.vibrate([300, 100, 300]);
     }
@@ -1409,7 +1477,7 @@ function CardioScreen({ onFinish, onCancel, showToast, user, combinedFlow }) {
             </div>
           </div>
 
-          <button onClick={() => setRunning(true)}
+          <button onClick={() => { startAtRef.current = Date.now(); accumulatedRef.current = 0; setRunning(true); }}
             className="w-full bg-red-600 text-white font-display text-2xl py-5 rounded-xl flex items-center justify-center gap-3">
             <Play className="w-6 h-6 fill-current" /> LOS GEHT'S
           </button>
@@ -1443,12 +1511,12 @@ function CardioScreen({ onFinish, onCancel, showToast, user, combinedFlow }) {
 
           <div className="flex gap-3 mb-6">
             {running ? (
-              <button onClick={() => setRunning(false)}
+              <button onClick={() => { accumulatedRef.current += Math.floor((Date.now() - startAtRef.current) / 1000); startAtRef.current = null; setRunning(false); }}
                 className="bg-zinc-800 px-6 py-3 rounded-xl font-mono text-sm flex items-center gap-2">
                 <Pause className="w-4 h-4" /> Pause
               </button>
             ) : (
-              <button onClick={() => setRunning(true)}
+              <button onClick={() => { startAtRef.current = Date.now(); setRunning(true); }}
                 className="bg-zinc-800 px-6 py-3 rounded-xl font-mono text-sm flex items-center gap-2">
                 <Play className="w-4 h-4" /> Weiter
               </button>
