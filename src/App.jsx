@@ -926,9 +926,11 @@ function useLatestRelease() {
 function ReleaseModal({ release, onClose }) {
   return (
     <div className="fixed inset-0 z-50 flex flex-col justify-end"
-      style={{ background: 'rgba(0,0,0,0.75)', paddingBottom: 'env(safe-area-inset-bottom)' }}
+      style={{ background: 'rgba(0,0,0,0.75)' }}
       onClick={onClose}>
-      <div className="bg-zinc-950 border-t border-zinc-800 rounded-t-3xl px-6 pt-7 pb-10 max-h-[88vh] overflow-y-auto"
+      <div className="bg-zinc-950 border-t border-zinc-800 rounded-t-3xl px-6 pt-7"
+        style={{ maxHeight: '88vh', overflowY: 'scroll', WebkitOverflowScrolling: 'touch',
+                 paddingBottom: 'calc(2.5rem + env(safe-area-inset-bottom))' }}
         onClick={e => e.stopPropagation()}>
 
         {/* Header */}
