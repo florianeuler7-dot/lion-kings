@@ -107,13 +107,15 @@ function buildPlanData(customPlan) {
   if (!customPlan) {
     return { plan: DEFAULT_PLAN, schedule: DEFAULT_SCHEDULE };
   }
-  // Custom plan from DB or AI – ensure cardio + rest exist
+  // Custom plan from DB or AI – only include workout blocks that exist in the user's plan.
+  // NEVER fall back to DEFAULT_PLAN workout blocks; that would inject workouts the user
+  // never selected. Only cardio/rest get a fallback since they're structural.
   const cardioBase = customPlan.cardio || DEFAULT_PLAN.cardio;
   const plan = {
-    push: customPlan.push || DEFAULT_PLAN.push,
-    pull: customPlan.pull || DEFAULT_PLAN.pull,
-    legs: customPlan.legs || DEFAULT_PLAN.legs,
-    aesthetic: customPlan.aesthetic || DEFAULT_PLAN.aesthetic,
+    ...(customPlan.push != null && { push: customPlan.push }),
+    ...(customPlan.pull != null && { pull: customPlan.pull }),
+    ...(customPlan.legs != null && { legs: customPlan.legs }),
+    ...(customPlan.aesthetic != null && { aesthetic: customPlan.aesthetic }),
     cardio: cardioBase,
     cardio_optional: customPlan.cardio_optional || { ...cardioBase, name: 'Cardio (optional)', optional: true },
     rest: customPlan.rest || DEFAULT_PLAN.rest,
