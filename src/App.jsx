@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { Dumbbell, Play, Pause, SkipForward, Check, Calendar, History, Home, X, Droplet, ChevronRight, ChevronDown, Clock, Flame, TrendingUp, Coffee, Timer, Heart, Activity, Sparkles, User, LogOut, AlertCircle, Users, Trophy, Zap, Plus, Minus, Camera, Upload, StickyNote, Forward, MessageCircle, Send } from 'lucide-react';
-import { findUserByName, getUserById, createUser, getLastWorkoutDate, getUserWorkouts, saveWorkout, rowToWorkout, computeLastWeights, getAllUsers, getActivityFeed, getAllLiveStatuses, setLiveStatus, clearLiveStatus, getReactionsForWorkouts, toggleReaction, getCommentsForWorkouts, addComment, computeUserStats, supabase, uploadAvatar, updateUserAvatar, saveUserPlan, getActivePlanForUser, parsePlanText, coachChat } from './supabase';
+import { findUserByName, getUserById, createUser, getLastWorkoutDate, getUserWorkouts, saveWorkout, rowToWorkout, computeLastWeights, getAllUsers, getActivityFeed, getAllLiveStatuses, setLiveStatus, clearLiveStatus, getReactionsForWorkouts, toggleReaction, getCommentsForWorkouts, addComment, computeUserStats, supabase, uploadAvatar, updateUserAvatar, saveUserPlan, getActivePlanForUser, parsePlanText, coachChat, findAlternativeExercise } from './supabase';
 
 // ===== HELPERS =====
 // Legacy workouts stored duration in seconds; newer ones in minutes.
@@ -1244,6 +1244,10 @@ function WorkoutScreen({ workout, setWorkout, lastWeights, onFinish, onCancel, s
   const [restDisplay, setRestDisplay] = useState(0); // seconds elapsed shown in UI
   const [restRunning, setRestRunning] = useState(false);
   const [earlyRestConfirm, setEarlyRestConfirm] = useState(false);
+  const [altModal, setAltModal] = useState(false);
+  const [altLoading, setAltLoading] = useState(false);
+  const [altError, setAltError] = useState('');
+  const [alternatives, setAlternatives] = useState([]);
   const [skippedNames, setSkippedNames] = useState(workout.skippedExercises || []);
   const [skipConfirm, setSkipConfirm] = useState(false);
   const [celebrating, setCelebrating] = useState(null); // { message, nextWorkout, nextExerciseName }
@@ -1324,6 +1328,46 @@ function WorkoutScreen({ workout, setWorkout, lastWeights, onFinish, onCancel, s
       setRestRunning(true);
       scheduleRestNotification(Date.now() + exercise.restSec * 1000);
     }
+  };
+
+  const currentLog = logs[exerciseIdx];
+  const isAlternative = !!currentLog.alternativeFor;
+  const displayName = isAlternative ? currentLog.name : exercise.name;
+  const displayHint = isAlternative ? (currentLog.hint || exercise.hint) : exercise.hint;
+
+  const openAltModal = async () => {
+    setAltModal(true);
+    setAltError('');
+    setAlternatives([]);
+    setAltLoading(true);
+    try {
+      const prevEx = exerciseIdx > 0 ? plan.exercises[exerciseIdx - 1].name : null;
+      const nextEx = exerciseIdx < plan.exercises.length - 1 ? plan.exercises[exerciseIdx + 1].name : null;
+      const results = await findAlternativeExercise({
+        exerciseName: exercise.name,
+        exerciseHint: exercise.hint,
+        planKey: workout.planKey,
+        prevExercise: prevEx,
+        nextExercise: nextEx,
+      });
+      setAlternatives(results);
+    } catch (e) {
+      setAltError('Fehler beim Laden der Alternativen. Nochmal versuchen?');
+    }
+    setAltLoading(false);
+  };
+
+  const pickAlternative = (alt) => {
+    const newLogs = [...logs];
+    newLogs[exerciseIdx] = {
+      ...newLogs[exerciseIdx],
+      name: alt.name,
+      hint: alt.hint,
+      alternativeFor: exercise.name,
+    };
+    setWorkout({ ...workout, logs: newLogs });
+    setAltModal(false);
+    setAlternatives([]);
   };
 
   const skipExercise = () => {
@@ -1411,6 +1455,52 @@ function WorkoutScreen({ workout, setWorkout, lastWeights, onFinish, onCancel, s
         </div>
       )}
 
+      {altModal && (
+        <div className="fixed inset-0 bg-zinc-950/95 z-40 flex flex-col justify-end"
+          style={{ paddingBottom: 'env(safe-area-inset-bottom)' }}>
+          <div className="bg-zinc-900 rounded-t-2xl border-t border-zinc-800 px-5 pt-5 pb-6 max-h-[80vh] overflow-y-auto">
+            <div className="flex items-center justify-between mb-4">
+              <div>
+                <div className="font-display text-xl text-zinc-100">ALTERNATIVE SUCHEN</div>
+                <div className="font-mono text-xs text-zinc-500 mt-0.5">Gerät belegt: {exercise.name}</div>
+              </div>
+              <button onClick={() => setAltModal(false)} className="text-zinc-500 p-1"><X className="w-5 h-5" /></button>
+            </div>
+
+            {altLoading && (
+              <div className="flex flex-col items-center py-10 gap-3">
+                <div className="w-6 h-6 border-2 border-red-500 border-t-transparent rounded-full animate-spin" />
+                <div className="font-mono text-xs text-zinc-500">Suche Alternative...</div>
+              </div>
+            )}
+
+            {altError && !altLoading && (
+              <div className="font-mono text-sm text-red-400 text-center py-8">{altError}</div>
+            )}
+
+            {!altLoading && !altError && alternatives.length > 0 && (
+              <div className="space-y-3">
+                {alternatives.map((alt, i) => (
+                  <div key={i} className="bg-zinc-950 border border-zinc-800 rounded-xl p-4">
+                    <div className="font-display text-lg text-zinc-100 mb-1">{alt.name.toUpperCase()}</div>
+                    <div className="font-mono text-xs text-zinc-400 italic mb-1">{alt.hint}</div>
+                    <div className="font-mono text-xs text-zinc-500 mb-3">{alt.reason}</div>
+                    <button onClick={() => pickAlternative(alt)}
+                      className="w-full bg-red-600 text-white font-display text-base py-2.5 rounded-lg">
+                      DIESE WÄHLEN
+                    </button>
+                  </div>
+                ))}
+              </div>
+            )}
+
+            {!altLoading && !altError && alternatives.length === 0 && (
+              <div className="font-mono text-sm text-zinc-500 text-center py-8">Keine Vorschläge gefunden.</div>
+            )}
+          </div>
+        </div>
+      )}
+
       {celebrating && (
         <CelebrationOverlay
           message={celebrating.message}
@@ -1491,8 +1581,22 @@ function WorkoutScreen({ workout, setWorkout, lastWeights, onFinish, onCancel, s
 
       <div className="flex-1">
         <div className="font-mono text-xs text-zinc-500 uppercase tracking-widest mb-2">{plan.name}</div>
-        <h2 className="font-display text-5xl text-zinc-100 leading-none mb-3">{exercise.name.toUpperCase()}</h2>
-        <div className="text-zinc-400 mb-8 italic">{exercise.hint}</div>
+        <div className="flex items-start justify-between gap-2 mb-3">
+          <h2 className="font-display text-5xl text-zinc-100 leading-none">{displayName.toUpperCase()}</h2>
+          {!isAlternative && completedSets.length === 0 && (
+            <button onClick={openAltModal}
+              className="shrink-0 mt-1 bg-zinc-800 border border-zinc-700 text-zinc-400 font-mono text-xs px-2.5 py-1.5 rounded-lg flex items-center gap-1.5 hover:bg-zinc-700">
+              <X className="w-3 h-3" /> Gerät belegt
+            </button>
+          )}
+        </div>
+        {isAlternative && (
+          <div className="flex items-center gap-2 mb-2 font-mono text-xs text-orange-400 bg-orange-950/30 border border-orange-800/30 rounded-lg px-3 py-1.5">
+            <Forward className="w-3 h-3 shrink-0" />
+            <span>Alternative statt <span className="text-orange-300">{currentLog.alternativeFor}</span></span>
+          </div>
+        )}
+        <div className="text-zinc-400 mb-8 italic">{displayHint}</div>
 
         <div className="bg-zinc-900 rounded-xl p-5 border border-zinc-800 mb-6">
           <div className="flex items-baseline justify-between mb-4">
@@ -1569,11 +1673,17 @@ function WorkoutScreen({ workout, setWorkout, lastWeights, onFinish, onCancel, s
           />
         </div>
 
-        <div className="mt-2">
+        <div className="mt-2 flex gap-2">
           <button onClick={() => setSkipConfirm(true)}
-            className="w-full bg-zinc-900 hover:bg-zinc-800 border border-zinc-800 text-zinc-400 font-mono text-xs py-2.5 rounded-lg flex items-center justify-center gap-2">
-            <Forward className="w-3 h-3" /> Übung überspringen
+            className="flex-1 bg-zinc-900 hover:bg-zinc-800 border border-zinc-800 text-zinc-400 font-mono text-xs py-2.5 rounded-lg flex items-center justify-center gap-2">
+            <Forward className="w-3 h-3" /> Überspringen
           </button>
+          {!isAlternative && (
+            <button onClick={openAltModal}
+              className="flex-1 bg-zinc-900 hover:bg-zinc-800 border border-zinc-800 text-zinc-400 font-mono text-xs py-2.5 rounded-lg flex items-center justify-center gap-2">
+              <X className="w-3 h-3" /> Gerät belegt
+            </button>
+          )}
         </div>
       </div>
     </div>
@@ -1635,13 +1745,20 @@ function HistoryScreen({ history }) {
               >
                 <div className="flex-1 min-w-0">
                   <div className="font-display text-2xl leading-tight">{e.planName.toUpperCase()}</div>
-                  <div className="font-mono text-xs mt-0.5">
-                    <span className={e.dateOnly === new Date().toISOString().split('T')[0] ? 'text-red-400' : 'text-zinc-500'}>
-                      {e.dateOnly === new Date().toISOString().split('T')[0]
-                        ? 'Heute'
-                        : new Date(e.date).toLocaleDateString('de-DE', { weekday: 'long', day: '2-digit', month: 'long' })}
-                    </span>
-                    {formatDuration(e.duration) ? <span className="text-zinc-500"> · {formatDuration(e.duration)}</span> : ''}
+                  <div className="font-mono text-xs text-zinc-500 mt-0.5">
+                    {(() => {
+                      const d = new Date(e.date);
+                      const diffH = (Date.now() - d) / (1000 * 60 * 60);
+                      const label = diffH < 1
+                        ? `vor ${Math.max(1, Math.floor(diffH * 60))} Min`
+                        : diffH < 24
+                          ? `vor ${Math.floor(diffH)} h`
+                          : diffH < 48
+                            ? 'gestern'
+                            : d.toLocaleDateString('de-DE', { weekday: 'long', day: '2-digit', month: 'long' });
+                      return label;
+                    })()}
+                    {formatDuration(e.duration) ? ` · ${formatDuration(e.duration)}` : ''}
                   </div>
                 </div>
                 <ChevronDown
@@ -1671,6 +1788,11 @@ function HistoryScreen({ history }) {
                               <span className="text-zinc-400">{l.name}</span>
                               <span className="text-zinc-200">{l.sets.length} × {heaviest} kg</span>
                             </div>
+                            {l.alternativeFor && (
+                              <div className="font-mono text-xs text-orange-400/80 mt-0.5">
+                                Alternative statt {l.alternativeFor}
+                              </div>
+                            )}
                             {l.note && (
                               <div className="flex items-start gap-1 mt-1">
                                 <StickyNote className="w-3 h-3 text-yellow-500/70 mt-0.5 shrink-0" />
@@ -2683,11 +2805,9 @@ function DashboardScreen({ user, optionalDays = new Set() }) {
 
   const formatTime = (iso) => {
     const d = new Date(iso);
-    const now = new Date();
-    const todayStr = now.toISOString().split('T')[0];
-    const dStr = d.toISOString().split('T')[0];
-    if (dStr === todayStr) return 'heute';
-    const diffH = (now - d) / (1000 * 60 * 60);
+    const diffH = (Date.now() - d) / (1000 * 60 * 60);
+    if (diffH < 1) return `vor ${Math.max(1, Math.floor(diffH * 60))} Min`;
+    if (diffH < 24) return `vor ${Math.floor(diffH)} h`;
     if (diffH < 48) return 'gestern';
     return d.toLocaleDateString('de-DE', { weekday: 'short', day: '2-digit', month: 'short' });
   };

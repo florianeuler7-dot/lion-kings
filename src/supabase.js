@@ -401,6 +401,17 @@ export async function parsePlanText(text) {
   return data.plan;
 }
 
+export async function findAlternativeExercise({ exerciseName, exerciseHint, planKey, prevExercise, nextExercise }) {
+  const resp = await fetch('/.netlify/functions/find-alternative', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ exerciseName, exerciseHint, planKey, prevExercise, nextExercise }),
+  });
+  const data = await resp.json();
+  if (!resp.ok) throw new Error(data.error || 'Alternative konnte nicht geladen werden');
+  return data.alternatives || [];
+}
+
 export async function coachChat(messages, currentPlan = null, onboarding = false) {
   const resp = await fetch('/.netlify/functions/coach-chat', {
     method: 'POST',
