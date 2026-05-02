@@ -1,5 +1,5 @@
 // Service worker – offline cache + scheduled notifications
-const CACHE = 'lionkings-v2';
+const CACHE = 'noexcuses-v1';
 const ASSETS = ['/'];
 
 self.addEventListener('install', (e) => {

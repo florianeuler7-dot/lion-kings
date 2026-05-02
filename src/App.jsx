@@ -112,21 +112,21 @@ const MOTIVATION_QUOTES = [
   { text: 'You\'re not tired. You\'re just weak. And that\'s fixable.', author: 'Chris Bumstead' },
   { text: 'Consistency beats intensity. Show up every day, no matter what.', author: 'Chris Bumstead' },
   { text: 'The only person you\'re competing with is who you were yesterday.', author: 'Chris Bumstead' },
-  { text: 'Hayatta bir şey var – ya yaparsın ya da yapmazsın. Orta yol yok.', author: 'Arda Saatçi' },
-  { text: 'Gym\'e gitmeye "istemiyorum" diyorsun – o his tam da gitmek zorunda olduğun anı gösterir.', author: 'Arda Saatçi' },
-  { text: 'Disiplin motivasyonu yener. Her zaman.', author: 'Arda Saatçi' },
-  { text: 'Başkasının sonucunu istemek yetmez – onun sürecini de isteyeceksin.', author: 'Arda Saatçi' },
-  { text: 'Kendine yaptığın her yatırım sana geri döner. Kas olarak, özgüven olarak, hayat olarak.', author: 'Arda Saatçi' },
-  { text: 'Der Kessel muss brennen!', author: 'Lion Kings' },
-  { text: 'Wer rastet, der rostet. Wer trainiert, der glänzt.', author: 'Lion Kings' },
-  { text: 'Heute schmerzt es. Morgen bist du stärker. Übermorgen ist es dein Standard.', author: 'Lion Kings' },
-  { text: 'Das hier ist kein Hobby. Das ist eine Lebensweise.', author: 'Lion Kings' },
-  { text: 'Jeder Satz zählt. Jede Wiederholung formt dich.', author: 'Lion Kings' },
-  { text: 'Träume wachsen nicht im Bett. Muskeln auch nicht.', author: 'Lion Kings' },
+  { text: 'Im Leben gibt es nur zwei Optionen – du machst es, oder du machst es nicht. Einen Mittelweg gibt es nicht.', author: 'Arda Saatçi' },
+  { text: 'Du sagst, du willst nicht ins Gym – genau das ist das Zeichen, dass du gehen musst.', author: 'Arda Saatçi' },
+  { text: 'Disziplin schlägt Motivation. Immer.', author: 'Arda Saatçi' },
+  { text: 'Es reicht nicht, das Ergebnis eines anderen zu wollen – du musst auch seinen Weg wollen.', author: 'Arda Saatçi' },
+  { text: 'Jede Investition in dich selbst kommt zurück – als Muskel, als Selbstvertrauen, als Leben.', author: 'Arda Saatçi' },
+  { text: 'Der Kessel muss brennen!', author: 'No Excuses' },
+  { text: 'Wer rastet, der rostet. Wer trainiert, der glänzt.', author: 'No Excuses' },
+  { text: 'Heute schmerzt es. Morgen bist du stärker. Übermorgen ist es dein Standard.', author: 'No Excuses' },
+  { text: 'Das hier ist kein Hobby. Das ist eine Lebensweise.', author: 'No Excuses' },
+  { text: 'Jeder Satz zählt. Jede Wiederholung formt dich.', author: 'No Excuses' },
+  { text: 'Träume wachsen nicht im Bett. Muskeln auch nicht.', author: 'No Excuses' },
 ];
 
 const CHEER_MESSAGES = [
-  'STARK! 💪', 'BOOM! 🔥', 'GEILE EINHEIT!', 'LION KING! 🦁',
+  'STARK! 💪', 'BOOM! 🔥', 'GEILE EINHEIT!', 'NO EXCUSES! 🔥',
   'WEITER SO!', 'BEAST MODE!', 'DOER! ⚡', 'SO GEHT DAS!',
   'KILLER SATZ! 🔥', 'MAKER!', 'NICHT AUFHÖREN!', 'WEITER, WEITER!',
 ];
@@ -643,7 +643,7 @@ export default function App() {
     return (
       <div className="min-h-screen bg-zinc-950 flex items-center justify-center"
         style={{ opacity: splashFading ? 0 : 1, transition: 'opacity 0.65s ease' }}>
-        <div className="font-display text-3xl text-red-500">LION KINGS</div>
+        <div className="font-display text-3xl text-red-500">NO EXCUSES</div>
       </div>
     );
   }
@@ -658,7 +658,7 @@ export default function App() {
       {splashVisible && (
         <div className="fixed inset-0 z-[200] bg-zinc-950 flex items-center justify-center pointer-events-none"
           style={{ opacity: splashFading ? 0 : 1, transition: 'opacity 0.65s ease' }}>
-          <div className="font-display text-3xl text-red-500">LION KINGS</div>
+          <div className="font-display text-3xl text-red-500">NO EXCUSES</div>
         </div>
       )}
       {/* Hidden file input for changing avatar */}
@@ -1135,7 +1135,7 @@ function HomeScreen({ user, onLogout, onChangeAvatar, plan: PLAN, todayPlan, tod
 
       <div className="mb-8">
         <div className="font-mono text-xs text-zinc-500 uppercase tracking-widest mb-1">{todayName}</div>
-        <h1 className="font-display text-6xl text-zinc-100 leading-none">LION<br/><span className="text-red-500">KINGS</span></h1>
+        <h1 className="font-display text-6xl text-zinc-100 leading-none">NO<br/><span className="text-red-500">EXCUSES</span></h1>
       </div>
 
       <div className={`bg-gradient-to-br ${todayPlan.color} rounded-2xl p-6 mb-6 relative overflow-hidden`}>
