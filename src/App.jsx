@@ -38,7 +38,7 @@ function mergeCardioMobilityPairs(workouts) {
   sorted.forEach(w => {
     if (usedIds.has(w.id)) return;
     // Already combined in new format
-    if (isC(w) && isM(w)) { result.push(w); usedIds.add(w.id); return; }
+    if (isC(w) && isM(w)) { result.push({ ...w, _allIds: [w.id] }); usedIds.add(w.id); return; }
 
     const dk = getDateKey(w);
     const dayList = byDate[dk] || [];
@@ -49,7 +49,7 @@ function mergeCardioMobilityPairs(workouts) {
         usedIds.add(w.id); usedIds.add(partner.id);
         const baseName = w.plan_name || w.planName || '';
         result.push({
-          ...w,
+          ...w, _allIds: [w.id, partner.id],
           is_mobility: true, isMobility: true,
           completed: partner.completed, total: partner.total, focus: partner.focus,
           plan_name: `${baseName} + Mobility`, planName: `${baseName} + Mobility`,
@@ -64,7 +64,7 @@ function mergeCardioMobilityPairs(workouts) {
         usedIds.add(w.id); usedIds.add(partner.id);
         const baseName = partner.plan_name || partner.planName || '';
         result.push({
-          ...partner,
+          ...partner, _allIds: [partner.id, w.id],
           is_mobility: true, isMobility: true,
           completed: w.completed, total: w.total, focus: w.focus,
           plan_name: `${baseName} + Mobility`, planName: `${baseName} + Mobility`,
@@ -74,7 +74,7 @@ function mergeCardioMobilityPairs(workouts) {
     }
 
     usedIds.add(w.id);
-    result.push(w);
+    result.push({ ...w, _allIds: [w.id] });
   });
 
   return result;
@@ -117,12 +117,7 @@ const MOTIVATION_QUOTES = [
   { text: 'Disziplin schlägt Motivation. Immer.', author: 'Arda Saatçi' },
   { text: 'Es reicht nicht, das Ergebnis eines anderen zu wollen – du musst auch seinen Weg wollen.', author: 'Arda Saatçi' },
   { text: 'Jede Investition in dich selbst kommt zurück – als Muskel, als Selbstvertrauen, als Leben.', author: 'Arda Saatçi' },
-  { text: 'Der Kessel muss brennen!', author: 'No Excuses' },
-  { text: 'Wer rastet, der rostet. Wer trainiert, der glänzt.', author: 'No Excuses' },
-  { text: 'Heute schmerzt es. Morgen bist du stärker. Übermorgen ist es dein Standard.', author: 'No Excuses' },
-  { text: 'Das hier ist kein Hobby. Das ist eine Lebensweise.', author: 'No Excuses' },
-  { text: 'Jeder Satz zählt. Jede Wiederholung formt dich.', author: 'No Excuses' },
-  { text: 'Träume wachsen nicht im Bett. Muskeln auch nicht.', author: 'No Excuses' },
+  { text: 'Der Kessel muss brennen, laufen muss es!', author: null },
 ];
 
 const CHEER_MESSAGES = [
@@ -487,10 +482,10 @@ export default function App() {
     setShowCustomModal(false);
   };
 
-  const handleDeleteWorkout = async (id) => {
+  const handleDeleteWorkout = async (ids) => {
     try {
-      await deleteWorkout(id);
-      setHistory(prev => prev.filter(w => w.id !== id));
+      await Promise.all(ids.map(id => deleteWorkout(id)));
+      setHistory(prev => prev.filter(w => !ids.includes(w.id)));
       showToast('Workout gelöscht', 'info');
     } catch (e) {
       showToast('Fehler beim Löschen', 'info');
@@ -1002,7 +997,7 @@ function WorkoutCompleteModal({ data, onClose }) {
         <div className="w-full border-t border-zinc-800 pt-4 mb-7 text-center"
           style={{ ...fade, transitionDelay: '240ms' }}>
           <div className="text-zinc-300 text-sm font-mono italic leading-snug">„{q.text}"</div>
-          <div className="text-zinc-500 text-xs font-mono mt-2">— {q.author}</div>
+          {q.author && <div className="text-zinc-500 text-xs font-mono mt-2">— {q.author}</div>}
         </div>
 
         {/* CTA */}
@@ -1146,7 +1141,7 @@ function HomeScreen({ user, onLogout, onChangeAvatar, plan: PLAN, todayPlan, tod
           {(() => { const q = MOTIVATION_QUOTES[new Date().getDate() % MOTIVATION_QUOTES.length]; return (
             <div className="mb-4 leading-snug">
               <div className="text-white/70 text-xs font-mono italic">„{q.text}"</div>
-              <div className="text-white/40 text-xs font-mono mt-0.5">— {q.author}</div>
+              {q.author && <div className="text-white/40 text-xs font-mono mt-0.5">— {q.author}</div>}
             </div>
           ); })()}
           {!isRest && !isAnyCardio && <div className="text-white/80 text-sm mb-6 font-mono">{todayPlan.exercises.length} Übungen · ca. 60–75 Min</div>}
@@ -1804,7 +1799,7 @@ function HistoryScreen({ history, onDelete }) {
   const entries = mergeCardioMobilityPairs([...history]).sort((a, b) => new Date(b.date) - new Date(a.date));
   const [expanded, setExpanded] = useState(new Set());
   const [swipedId, setSwipedId] = useState(null);
-  const [confirmDeleteId, setConfirmDeleteId] = useState(null);
+  const [confirmDeleteIds, setConfirmDeleteIds] = useState(null);
   const swipeStartX = useRef(0);
 
   const toggle = (id) => {
@@ -1841,17 +1836,17 @@ function HistoryScreen({ history, onDelete }) {
   return (
     <div className="pt-2">
       {/* Delete confirmation popup */}
-      {confirmDeleteId && (
+      {confirmDeleteIds && (
         <div className="fixed inset-0 bg-zinc-950/90 z-50 flex items-center justify-center p-6">
           <div className="bg-zinc-900 border border-zinc-800 rounded-2xl p-6 max-w-sm w-full text-center">
             <div className="font-display text-xl text-zinc-100 mb-2">WORKOUT LÖSCHEN?</div>
             <div className="font-mono text-xs text-zinc-500 mb-6">Das kann nicht rückgängig gemacht werden.</div>
             <div className="flex gap-2">
-              <button onClick={() => { setConfirmDeleteId(null); setSwipedId(null); }}
+              <button onClick={() => { setConfirmDeleteIds(null); setSwipedId(null); }}
                 className="flex-1 bg-zinc-800 text-zinc-300 font-mono text-sm py-3 rounded-xl">
                 Abbrechen
               </button>
-              <button onClick={() => { onDelete(confirmDeleteId); setConfirmDeleteId(null); setSwipedId(null); }}
+              <button onClick={() => { onDelete(confirmDeleteIds); setConfirmDeleteIds(null); setSwipedId(null); }}
                 className="flex-1 bg-red-600 text-white font-display text-base py-3 rounded-xl flex items-center justify-center gap-2">
                 <Trash2 className="w-4 h-4" /> Löschen
               </button>
@@ -1878,7 +1873,7 @@ function HistoryScreen({ history, onDelete }) {
             <div key={e.id} className="relative rounded-xl overflow-hidden">
               {/* Delete button revealed by swipe */}
               <div className="absolute right-0 top-0 bottom-0 w-20 bg-red-600 flex items-center justify-center rounded-r-xl">
-                <button onClick={() => setConfirmDeleteId(e.id)} className="flex flex-col items-center gap-1">
+                <button onClick={() => setConfirmDeleteIds(e._allIds || [e.id])} className="flex flex-col items-center gap-1">
                   <Trash2 className="w-5 h-5 text-white" />
                   <span className="font-mono text-[10px] text-white">Löschen</span>
                 </button>
