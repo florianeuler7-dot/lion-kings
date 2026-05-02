@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { Dumbbell, Play, Pause, SkipForward, Check, Calendar, History, Home, X, Droplet, ChevronRight, ChevronDown, Clock, Flame, TrendingUp, Coffee, Timer, Heart, Activity, Sparkles, User, LogOut, AlertCircle, Users, Trophy, Zap, Plus, Minus, Camera, Upload, StickyNote, Forward, MessageCircle, Send, ArrowLeft } from 'lucide-react';
-import { findUserByName, getUserById, createUser, getLastWorkoutDate, getUserWorkouts, saveWorkout, rowToWorkout, computeLastWeights, getAllUsers, getActivityFeed, getAllLiveStatuses, setLiveStatus, clearLiveStatus, getReactionsForWorkouts, toggleReaction, getCommentsForWorkouts, addComment, computeUserStats, supabase, uploadAvatar, updateUserAvatar, saveUserPlan, getActivePlanForUser, parsePlanText, coachChat } from './supabase';
+import { Dumbbell, Play, Pause, SkipForward, Check, Calendar, History, Home, X, Droplet, ChevronRight, ChevronDown, Clock, Flame, TrendingUp, Coffee, Timer, Heart, Activity, Sparkles, User, LogOut, AlertCircle, Users, Trophy, Zap, Plus, Minus, Camera, Upload, StickyNote, Forward, MessageCircle, Send, ArrowLeft, Trash2 } from 'lucide-react';
+import { findUserByName, getUserById, createUser, getLastWorkoutDate, getUserWorkouts, saveWorkout, rowToWorkout, computeLastWeights, getAllUsers, getActivityFeed, getAllLiveStatuses, setLiveStatus, clearLiveStatus, getReactionsForWorkouts, toggleReaction, getCommentsForWorkouts, addComment, deleteWorkout, computeUserStats, supabase, uploadAvatar, updateUserAvatar, saveUserPlan, getActivePlanForUser, parsePlanText, coachChat, getUserHabits, setUserHabits } from './supabase';
 import RELEASE_NOTES from './data/releaseNotes';
 
 // ===== HELPERS =====
@@ -280,6 +280,7 @@ export default function App() {
   const [lastWeights, setLastWeights] = useState({});
   const [toast, setToast] = useState(null);
   const [combinedFlow, setCombinedFlow] = useState(false);
+  const pendingCombinedCardioRef = useRef(null);
   const [showCustomModal, setShowCustomModal] = useState(false);
   const [workoutComplete, setWorkoutComplete] = useState(null); // { planName, duration }
   const [planConfig, setPlanConfig] = useState(buildPlanData(null)); // { plan, schedule }
@@ -405,6 +406,16 @@ export default function App() {
     setShowCustomModal(false);
   };
 
+  const handleDeleteWorkout = async (id) => {
+    try {
+      await deleteWorkout(id);
+      setHistory(prev => prev.filter(w => w.id !== id));
+      showToast('Workout gelöscht', 'info');
+    } catch (e) {
+      showToast('Fehler beim Löschen', 'info');
+    }
+  };
+
   const today = new Date();
   const todayKey = DAY_MAP[today.getDay()];
   const todayPlan = PLAN[todayKey];
@@ -437,20 +448,21 @@ export default function App() {
 
   const finishCardio = async (durationMin, type) => {
     try {
-      await persistWorkout({
-        date: new Date().toISOString(),
-        planKey: 'cardio',
-        planName: type,
-        logs: [],
-        duration: durationMin,
-        isCardio: true,
-      });
       clearLiveStatus(user.id);
       if (combinedFlow) {
-        // Chain into mobility
+        // Don't save yet — merge with mobility into one entry
+        pendingCombinedCardioRef.current = { durationMin, type };
         showToast('Cardio fertig – jetzt Mobility', 'check');
         setScreen('mobility');
       } else {
+        await persistWorkout({
+          date: new Date().toISOString(),
+          planKey: 'cardio',
+          planName: type,
+          logs: [],
+          duration: durationMin,
+          isCardio: true,
+        });
         setScreen('home');
         showToast('Cardio abgeschlossen 🔥', 'check');
       }
@@ -459,23 +471,37 @@ export default function App() {
 
   const finishMobility = async (focus, completed, total) => {
     try {
-      await persistWorkout({
-        date: new Date().toISOString(),
-        planKey: 'mobility',
-        planName: `Mobility – ${MOBILITY[focus].name}`,
-        logs: [],
-        duration: 0,
-        isMobility: true,
-        focus,
-        completed,
-        total,
-      });
       clearLiveStatus(user.id);
-      if (combinedFlow) {
+      if (combinedFlow && pendingCombinedCardioRef.current) {
+        const { durationMin, type } = pendingCombinedCardioRef.current;
+        pendingCombinedCardioRef.current = null;
+        await persistWorkout({
+          date: new Date().toISOString(),
+          planKey: 'combined',
+          planName: `${type} + Mobility`,
+          logs: [],
+          duration: durationMin,
+          isCardio: true,
+          isMobility: true,
+          focus,
+          completed,
+          total,
+        });
         setCombinedFlow(false);
         setScreen('home');
         showToast('Training komplett 🦁', 'check');
       } else {
+        await persistWorkout({
+          date: new Date().toISOString(),
+          planKey: 'mobility',
+          planName: `Mobility – ${MOBILITY[focus].name}`,
+          logs: [],
+          duration: 0,
+          isMobility: true,
+          focus,
+          completed,
+          total,
+        });
         setScreen('home');
         showToast(`Mobility abgeschlossen (${completed}/${total})`, 'check');
       }
@@ -614,7 +640,7 @@ export default function App() {
             showToast={showToast}
           />
         )}
-        {screen === 'history' && <HistoryScreen history={history} />}
+        {screen === 'history' && <HistoryScreen history={history} onDelete={handleDeleteWorkout} />}
         {screen === 'plan' && <PlanScreen plan={PLAN} schedule={DAY_MAP} />}
         {screen === 'dashboard' && <DashboardScreen user={user} optionalDays={new Set(Object.entries(DAY_MAP).filter(([,v]) => v === 'rest' || v === 'cardio_optional').map(([k]) => parseInt(k)))} />}
         {screen === 'coach' && <CoachScreen user={user} currentPlan={PLAN} currentSchedule={DAY_MAP} onPlanSaved={handlePlanSaved} showToast={showToast} />}
@@ -1078,7 +1104,7 @@ function HomeScreen({ user, onLogout, onChangeAvatar, plan: PLAN, todayPlan, tod
         </div>
       </div>
 
-      <GoldenRules />
+      <GoldenRules userId={user.id} />
 
       <div className="mb-6">
         <div className="font-mono text-xs text-zinc-500 uppercase tracking-widest mb-3">Anderes Training starten</div>
@@ -1688,15 +1714,21 @@ function WorkoutScreen({ workout, setWorkout, lastWeights, onFinish, onCancel, s
   );
 }
 
-function HistoryScreen({ history }) {
+function HistoryScreen({ history, onDelete }) {
   const entries = [...history].sort((a, b) => new Date(b.date) - new Date(a.date));
   const [expanded, setExpanded] = useState(new Set());
+  const [swipedId, setSwipedId] = useState(null);
+  const [confirmDeleteId, setConfirmDeleteId] = useState(null);
+  const swipeStartX = useRef(0);
 
-  const toggle = (id) => setExpanded(prev => {
-    const next = new Set(prev);
-    if (next.has(id)) next.delete(id); else next.add(id);
-    return next;
-  });
+  const toggle = (id) => {
+    if (swipedId) { setSwipedId(null); return; }
+    setExpanded(prev => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id); else next.add(id);
+      return next;
+    });
+  };
 
   const allExpanded = entries.length > 0 && entries.every(e => expanded.has(e.id));
   const toggleAll = () => {
@@ -1722,6 +1754,26 @@ function HistoryScreen({ history }) {
 
   return (
     <div className="pt-2">
+      {/* Delete confirmation popup */}
+      {confirmDeleteId && (
+        <div className="fixed inset-0 bg-zinc-950/90 z-50 flex items-center justify-center p-6">
+          <div className="bg-zinc-900 border border-zinc-800 rounded-2xl p-6 max-w-sm w-full text-center">
+            <div className="font-display text-xl text-zinc-100 mb-2">WORKOUT LÖSCHEN?</div>
+            <div className="font-mono text-xs text-zinc-500 mb-6">Das kann nicht rückgängig gemacht werden.</div>
+            <div className="flex gap-2">
+              <button onClick={() => { setConfirmDeleteId(null); setSwipedId(null); }}
+                className="flex-1 bg-zinc-800 text-zinc-300 font-mono text-sm py-3 rounded-xl">
+                Abbrechen
+              </button>
+              <button onClick={() => { onDelete(confirmDeleteId); setConfirmDeleteId(null); setSwipedId(null); }}
+                className="flex-1 bg-red-600 text-white font-display text-base py-3 rounded-xl flex items-center justify-center gap-2">
+                <Trash2 className="w-4 h-4" /> Löschen
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       <div className="mb-6 flex items-end justify-between">
         <div>
           <div className="font-mono text-xs text-zinc-500 uppercase tracking-widest mb-1">Trainings-Verlauf</div>
@@ -1734,85 +1786,118 @@ function HistoryScreen({ history }) {
       <div className="space-y-3">
         {entries.map((e) => {
           const isOpen = expanded.has(e.id);
+          const isSwiped = swipedId === e.id;
+          const isCombined = e.isCardio && e.isMobility;
           return (
-            <div key={e.id} className="bg-zinc-900 rounded-xl border border-zinc-800 overflow-hidden">
-              {/* Header — always visible, tap to toggle */}
-              <button
-                onClick={() => toggle(e.id)}
-                className="w-full p-5 flex items-center gap-3 text-left"
+            <div key={e.id} className="relative rounded-xl overflow-hidden">
+              {/* Delete button revealed by swipe */}
+              <div className="absolute right-0 top-0 bottom-0 w-20 bg-red-600 flex items-center justify-center rounded-r-xl">
+                <button onClick={() => setConfirmDeleteId(e.id)} className="flex flex-col items-center gap-1">
+                  <Trash2 className="w-5 h-5 text-white" />
+                  <span className="font-mono text-[10px] text-white">Löschen</span>
+                </button>
+              </div>
+              {/* Card — slides left to reveal delete */}
+              <div
+                className="bg-zinc-900 border border-zinc-800 rounded-xl"
+                style={{ transform: isSwiped ? 'translateX(-80px)' : 'translateX(0)', transition: 'transform 0.2s ease' }}
+                onTouchStart={e2 => { swipeStartX.current = e2.touches[0].clientX; }}
+                onTouchEnd={e2 => {
+                  const delta = e2.changedTouches[0].clientX - swipeStartX.current;
+                  if (delta < -40) setSwipedId(e.id);
+                  else if (delta > 20) setSwipedId(null);
+                }}
               >
-                <div className="flex-1 min-w-0">
-                  <div className="font-display text-2xl leading-tight">{e.planName.toUpperCase()}</div>
-                  <div className="font-mono text-xs text-zinc-500 mt-0.5">
-                    {(() => {
-                      const d = new Date(e.date);
-                      const diffH = (Date.now() - d) / (1000 * 60 * 60);
-                      const label = diffH < 1
-                        ? `vor ${Math.max(1, Math.floor(diffH * 60))} Min`
-                        : diffH < 24
-                          ? `vor ${Math.floor(diffH)} h`
-                          : diffH < 48
-                            ? 'gestern'
-                            : d.toLocaleDateString('de-DE', { weekday: 'long', day: '2-digit', month: 'long' });
-                      return label;
-                    })()}
-                    {formatDuration(e.duration) ? ` · ${formatDuration(e.duration)}` : ''}
+                {/* Header — always visible, tap to toggle */}
+                <button
+                  onClick={() => toggle(e.id)}
+                  className="w-full p-5 flex items-center gap-3 text-left"
+                >
+                  <div className="flex-1 min-w-0">
+                    <div className="font-display text-2xl leading-tight flex items-center gap-2">
+                      {isCombined && <Heart className="w-4 h-4 text-red-500 shrink-0" />}
+                      {isCombined && <Activity className="w-4 h-4 text-emerald-500 shrink-0" />}
+                      {!isCombined && e.isCardio && <Heart className="w-4 h-4 text-red-500 shrink-0" />}
+                      {!isCombined && e.isMobility && <Activity className="w-4 h-4 text-emerald-500 shrink-0" />}
+                      <span className="truncate">{e.planName.toUpperCase()}</span>
+                    </div>
+                    <div className="font-mono text-xs text-zinc-500 mt-0.5">
+                      {(() => {
+                        const d = new Date(e.date);
+                        const diffH = (Date.now() - d) / (1000 * 60 * 60);
+                        return diffH < 1
+                          ? `vor ${Math.max(1, Math.floor(diffH * 60))} Min`
+                          : diffH < 24 ? `vor ${Math.floor(diffH)} h`
+                          : diffH < 48 ? 'gestern'
+                          : d.toLocaleDateString('de-DE', { weekday: 'long', day: '2-digit', month: 'long' });
+                      })()}
+                      {formatDuration(e.duration) ? ` · ${formatDuration(e.duration)}` : ''}
+                    </div>
                   </div>
-                </div>
-                <ChevronDown
-                  className="w-5 h-5 text-zinc-600 shrink-0 transition-transform duration-200"
-                  style={{ transform: isOpen ? 'rotate(180deg)' : 'rotate(0deg)' }}
-                />
-              </button>
+                  <ChevronDown
+                    className="w-5 h-5 text-zinc-600 shrink-0 transition-transform duration-200"
+                    style={{ transform: isOpen ? 'rotate(180deg)' : 'rotate(0deg)' }}
+                  />
+                </button>
 
-              {/* Detail — collapsable */}
-              <div style={{ maxHeight: isOpen ? 2000 : 0, overflow: 'hidden', transition: 'max-height 0.3s ease' }}>
-                <div className="px-5 pb-5 border-t border-zinc-800/60">
-                  {e.isCardio ? (
-                    <div className="flex items-center gap-2 text-sm font-mono text-zinc-400 pt-4">
-                      <Heart className="w-4 h-4 text-red-500" /> {formatDuration(e.duration) || '—'} Cardio absolviert
-                    </div>
-                  ) : e.isMobility ? (
-                    <div className="flex items-center gap-2 text-sm font-mono text-zinc-400 pt-4">
-                      <Activity className="w-4 h-4 text-emerald-500" /> {e.completed} / {e.total} Mobility-Übungen
-                    </div>
-                  ) : (
-                    <div className="space-y-2 pt-3">
-                      {e.logs.filter(l => l.sets.length > 0).map((l, j) => {
-                        const heaviest = Math.max(...l.sets.map(s => s.weight));
-                        return (
-                          <div key={j} className="py-2 border-t border-zinc-800/50 first:border-t-0 first:pt-0">
-                            <div className="flex justify-between text-sm font-mono">
-                              <span className="text-zinc-400">{l.name}</span>
-                              <span className="text-zinc-200">{l.sets.length} × {heaviest} kg</span>
-                            </div>
-                            {l.note && (
-                              <div className="flex items-start gap-1 mt-1">
-                                <StickyNote className="w-3 h-3 text-yellow-500/70 mt-0.5 shrink-0" />
-                                <span className="text-xs text-yellow-400/80 italic">{l.note}</span>
-                              </div>
-                            )}
-                          </div>
-                        );
-                      })}
-                      {e.skippedExercises && e.skippedExercises.length > 0 && (
-                        <div className="pt-2 border-t border-zinc-800/50">
-                          <div className="font-mono text-xs text-orange-400 mb-1 flex items-center gap-1">
-                            <Forward className="w-3 h-3" /> Übersprungen
-                          </div>
-                          {e.skippedExercises.map((name, k) => (
-                            <div key={k} className="font-mono text-xs text-zinc-500">{name}</div>
-                          ))}
+                {/* Detail — collapsable */}
+                <div style={{ maxHeight: isOpen ? 2000 : 0, overflow: 'hidden', transition: 'max-height 0.3s ease' }}>
+                  <div className="px-5 pb-5 border-t border-zinc-800/60">
+                    {isCombined ? (
+                      <div className="space-y-2 pt-4">
+                        <div className="flex items-center gap-2 text-sm font-mono text-zinc-400">
+                          <Heart className="w-4 h-4 text-red-500" /> {formatDuration(e.duration) || '—'} Cardio
                         </div>
-                      )}
-                    </div>
-                  )}
-                  {e.notes && (
-                    <div className="mt-3 pt-3 border-t border-zinc-800/50 flex gap-2">
-                      <StickyNote className="w-4 h-4 text-yellow-400 shrink-0 mt-0.5" />
-                      <div className="text-xs text-zinc-300 italic">{e.notes}</div>
-                    </div>
-                  )}
+                        <div className="flex items-center gap-2 text-sm font-mono text-zinc-400">
+                          <Activity className="w-4 h-4 text-emerald-500" /> {e.completed} / {e.total} Mobility-Übungen
+                        </div>
+                      </div>
+                    ) : e.isCardio ? (
+                      <div className="flex items-center gap-2 text-sm font-mono text-zinc-400 pt-4">
+                        <Heart className="w-4 h-4 text-red-500" /> {formatDuration(e.duration) || '—'} Cardio absolviert
+                      </div>
+                    ) : e.isMobility ? (
+                      <div className="flex items-center gap-2 text-sm font-mono text-zinc-400 pt-4">
+                        <Activity className="w-4 h-4 text-emerald-500" /> {e.completed} / {e.total} Mobility-Übungen
+                      </div>
+                    ) : (
+                      <div className="space-y-2 pt-3">
+                        {e.logs.filter(l => l.sets.length > 0).map((l, j) => {
+                          const heaviest = Math.max(...l.sets.map(s => s.weight));
+                          return (
+                            <div key={j} className="py-2 border-t border-zinc-800/50 first:border-t-0 first:pt-0">
+                              <div className="flex justify-between text-sm font-mono">
+                                <span className="text-zinc-400">{l.name}</span>
+                                <span className="text-zinc-200">{l.sets.length} × {heaviest} kg</span>
+                              </div>
+                              {l.note && (
+                                <div className="flex items-start gap-1 mt-1">
+                                  <StickyNote className="w-3 h-3 text-yellow-500/70 mt-0.5 shrink-0" />
+                                  <span className="text-xs text-yellow-400/80 italic">{l.note}</span>
+                                </div>
+                              )}
+                            </div>
+                          );
+                        })}
+                        {e.skippedExercises && e.skippedExercises.length > 0 && (
+                          <div className="pt-2 border-t border-zinc-800/50">
+                            <div className="font-mono text-xs text-orange-400 mb-1 flex items-center gap-1">
+                              <Forward className="w-3 h-3" /> Übersprungen
+                            </div>
+                            {e.skippedExercises.map((name, k) => (
+                              <div key={k} className="font-mono text-xs text-zinc-500">{name}</div>
+                            ))}
+                          </div>
+                        )}
+                      </div>
+                    )}
+                    {e.notes && (
+                      <div className="mt-3 pt-3 border-t border-zinc-800/50 flex gap-2">
+                        <StickyNote className="w-4 h-4 text-yellow-400 shrink-0 mt-0.5" />
+                        <div className="text-xs text-zinc-300 italic">{e.notes}</div>
+                      </div>
+                    )}
+                  </div>
                 </div>
               </div>
             </div>
@@ -2784,13 +2869,17 @@ function DashboardScreen({ user, optionalDays = new Set() }) {
 
   const [lbFilter, setLbFilter] = useState('week');
 
+  const weekStart = (() => {
+    const d = new Date();
+    d.setDate(d.getDate() - (d.getDay() + 6) % 7);
+    d.setHours(0, 0, 0, 0);
+    return d.getTime();
+  })();
+
   const leaderboard = users.map(u => {
     const userWorkouts = allWorkoutsByUser[u.id] || [];
-    const now = Date.now();
-    const cutoff = lbFilter === 'week'
-      ? now - 7 * 24 * 60 * 60 * 1000
-      : now - 30 * 24 * 60 * 60 * 1000;
-    const filtered = userWorkouts.filter(w => new Date(w.created_at || w.date).getTime() > cutoff);
+    const cutoff = lbFilter === 'week' ? weekStart : Date.now() - 30 * 24 * 60 * 60 * 1000;
+    const filtered = userWorkouts.filter(w => new Date(w.created_at || w.date).getTime() >= cutoff);
     const stats = computeUserStats(userWorkouts, optionalDays);
     const status = liveStatuses.find(s => s.user_id === u.id);
     return { user: u, stats, count: filtered.length };
@@ -2947,7 +3036,8 @@ function DashboardScreen({ user, optionalDays = new Set() }) {
                       {w.is_mobility && <Activity className="w-3 h-3 text-emerald-500 inline mr-1" />}
                       {!w.is_cardio && !w.is_mobility && <Dumbbell className="w-3 h-3 text-zinc-400 inline mr-1" />}
                       {w.plan_name}{w.duration > 0 && ` · ${w.duration} min`}
-                      {w.is_mobility && ` · ${w.completed}/${w.total}`}
+                      {w.is_mobility && !w.is_cardio && ` · ${w.completed}/${w.total}`}
+                      {w.is_cardio && w.is_mobility && ` · ${w.completed}/${w.total} Mobility`}
                     </div>
                   </div>
                 </div>
@@ -3055,31 +3145,45 @@ function DashboardScreen({ user, optionalDays = new Set() }) {
 }
 
 // ===== GOLDEN RULES WITH STREAK =====
-function GoldenRules() {
+function GoldenRules({ userId }) {
   const todayKey = new Date().toISOString().split('T')[0];
-
-  // Load today's state
-  const [checked, setChecked] = useState(() => {
-    try { return JSON.parse(localStorage.getItem(`golden_rules_${todayKey}`)) || [false, false, false]; }
-    catch { return [false, false, false]; }
+  const [allData, setAllData] = useState(() => {
+    // Seed from localStorage while Supabase loads
+    const obj = {};
+    for (let i = 0; i < 7; i++) {
+      const d = new Date(); d.setDate(d.getDate() - i);
+      const k = d.toISOString().split('T')[0];
+      try { const v = localStorage.getItem(`golden_rules_${k}`); if (v) obj[k] = JSON.parse(v); } catch {}
+    }
+    return obj;
   });
+
+  // Load from Supabase on mount
+  useEffect(() => {
+    if (!userId) return;
+    getUserHabits(userId).then(data => {
+      if (data && Object.keys(data).length > 0) setAllData(data);
+    }).catch(() => {});
+  }, [userId]);
+
+  const checked = allData[todayKey] || [false, false, false];
 
   const toggle = (i) => {
     const next = [...checked];
     next[i] = !next[i];
-    setChecked(next);
+    const newAllData = { ...allData, [todayKey]: next };
+    setAllData(newAllData);
     try { localStorage.setItem(`golden_rules_${todayKey}`, JSON.stringify(next)); } catch {}
+    if (userId) setUserHabits(userId, newAllData).catch(() => {});
   };
 
-  // Build last 7 days (Mon-Sun of current week relative to today)
+  // Build last 7 days
   const last7 = Array.from({ length: 7 }, (_, offset) => {
     const d = new Date();
     d.setDate(d.getDate() - (6 - offset));
-    const key = `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
+    const key = d.toISOString().split('T')[0];
     const isToday = key === todayKey;
-    let stored;
-    try { stored = JSON.parse(localStorage.getItem(`golden_rules_${key}`)); } catch {}
-    const data = stored || (isToday ? checked : null);
+    const data = allData[key] || null;
     return { key, isToday, data };
   });
 

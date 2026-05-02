@@ -274,6 +274,14 @@ export async function getCommentsForWorkouts(workoutIds) {
   return grouped;
 }
 
+export async function deleteWorkout(workoutId) {
+  const { error } = await supabase
+    .from('workouts')
+    .delete()
+    .eq('id', workoutId);
+  if (error) throw error;
+}
+
 export async function addComment(workoutId, userId, content) {
   const { data, error } = await supabase
     .from('comments')
@@ -368,6 +376,26 @@ export async function getAllStepsForDate(date = null) {
     .eq('date', d);
   if (error) throw error;
   return data || [];
+}
+
+// ===== HABITS =====
+
+export async function getUserHabits(userId) {
+  const { data, error } = await supabase
+    .from('users')
+    .select('habits_data')
+    .eq('id', userId)
+    .maybeSingle();
+  if (error || !data?.habits_data) return {};
+  return data.habits_data;
+}
+
+export async function setUserHabits(userId, habitsData) {
+  const { error } = await supabase
+    .from('users')
+    .update({ habits_data: habitsData })
+    .eq('id', userId);
+  if (error) console.error('Habits save error:', error);
 }
 
 // ===== PLANS =====
