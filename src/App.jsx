@@ -354,7 +354,6 @@ export default function App() {
   const [activeWorkout, setActiveWorkout] = useState(null);
   const [history, setHistory] = useState([]); // array of workout rows
   const [lastWeights, setLastWeights] = useState({});
-  const [toast, setToast] = useState(null);
   const [combinedFlow, setCombinedFlow] = useState(false);
   const pendingCombinedCardioRef = useRef(null);
   const [showCustomModal, setShowCustomModal] = useState(false);
@@ -415,10 +414,7 @@ export default function App() {
     })();
   }, [user]);
 
-  const showToast = (msg, icon = 'info') => {
-    setToast({ msg, icon, id: Date.now() });
-    setTimeout(() => setToast(null), 3500);
-  };
+  const showToast = () => {};
 
   const handleOnboarded = (newUser) => {
     session.setUser(newUser);
@@ -665,16 +661,8 @@ export default function App() {
         className="hidden"
       />
 
-      {toast && (
-        <div className="fixed top-4 left-1/2 -translate-x-1/2 z-50 bg-zinc-900 border border-red-600 px-5 py-3 rounded-lg shadow-2xl flex items-center gap-3">
-          {toast.icon === 'drink' && <Droplet className="w-5 h-5 text-blue-400" />}
-          {toast.icon === 'check' && <Check className="w-5 h-5 text-green-500" />}
-          {toast.icon === 'info' && <Flame className="w-5 h-5 text-red-500" />}
-          <span className="font-mono text-sm">{toast.msg}</span>
-        </div>
-      )}
 
-      {workoutComplete && (
+{workoutComplete && (
         <WorkoutCompleteModal
           data={workoutComplete}
           onClose={saveCompletedWorkout}
@@ -2611,7 +2599,7 @@ function OnboardingScreen({ onComplete }) {
       <div className="flex-1 max-w-md mx-auto w-full px-6 flex flex-col justify-center pb-20">
         <div className="mb-12">
           <div className="font-mono text-xs text-zinc-500 uppercase tracking-widest mb-2">Willkommen bei</div>
-          <h1 className="font-display text-7xl text-zinc-100 leading-none">LION<br/><span className="text-red-500">KINGS</span></h1>
+          <h1 className="font-display text-7xl text-zinc-100 leading-none">NO <span className="text-red-500">EXCUSES</span></h1>
         </div>
 
         {step === 'name' && (
@@ -2730,7 +2718,7 @@ function OnboardingScreen({ onComplete }) {
                 </div>
                 <div className="flex-1">
                   <div className="font-display text-lg text-zinc-100">EIGENEN PLAN EINGEBEN</div>
-                  <div className="font-mono text-xs text-zinc-500">Freitext einfügen, Lions Coach strukturiert</div>
+                  <div className="font-mono text-xs text-zinc-500">Freitext einfügen, Coach strukturiert automatisch</div>
                 </div>
                 <ChevronRight className="w-5 h-5 text-zinc-600" />
               </button>
@@ -2742,7 +2730,7 @@ function OnboardingScreen({ onComplete }) {
                 </div>
                 <div className="flex-1">
                   <div className="font-display text-lg text-zinc-100">VOM COACH ERSTELLEN</div>
-                  <div className="font-mono text-xs text-zinc-500">Geführter Chat mit dem Lions Coach</div>
+                  <div className="font-mono text-xs text-zinc-500">Geführter Chat mit dem Coach</div>
                 </div>
                 <ChevronRight className="w-5 h-5 text-zinc-600" />
               </button>
@@ -2767,7 +2755,7 @@ function OnboardingScreen({ onComplete }) {
               <div className="font-display text-3xl text-zinc-100 leading-tight mb-2">Dein Plan als Text</div>
               <div className="text-sm text-zinc-400">
                 Füge deinen Plan als Freitext ein – Übungen, Sätze, Wiederholungen.
-                Der Lions Coach strukturiert ihn dann automatisch.
+                Der Coach strukturiert ihn dann automatisch.
               </div>
             </div>
 
@@ -2863,7 +2851,7 @@ function DashboardScreen({ user, optionalDays = new Set() }) {
   const [loading, setLoading] = useState(true);
   const [tab, setTab] = useState('leaderboard');
 
-  const REACTIONS = ['💪', '🔥', '👏', '🦁'];
+  const REACTIONS = ['💪', '🔥', '👏', '⚡'];
 
   const loadTimeoutRef = useRef(null);
   const debouncedLoad = () => {
@@ -3600,7 +3588,7 @@ function CoachScreen({ user, currentPlan, currentSchedule, onPlanSaved, showToas
       <div className="px-5 pt-6 pb-3 flex items-start justify-between border-b border-zinc-900 flex-shrink-0">
         <div>
           <div className="font-mono text-xs text-zinc-500 uppercase tracking-widest mb-1">Dein</div>
-          <h1 className="font-display text-3xl text-zinc-100 leading-none">LIONS <span className="text-red-500">COACH</span></h1>
+          <h1 className="font-display text-3xl text-zinc-100 leading-none"><span className="text-red-500">COACH</span></h1>
         </div>
         {messages.length > 0 && (
           <button onClick={clearChat} className="font-mono text-xs text-zinc-500 hover:text-zinc-300 mt-2">
