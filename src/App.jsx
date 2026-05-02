@@ -15,6 +15,71 @@ function formatDuration(raw) {
   return m > 0 ? `${h}h ${m} Min` : `${h}h`;
 }
 
+// Merges same-day cardio + mobility pairs into one combined entry (handles legacy data)
+// Works on both app-shape (isCardio/isMobility/dateOnly) and DB rows (is_cardio/is_mobility/date)
+function mergeCardioMobilityPairs(workouts) {
+  const getDateKey = w => w.dateOnly || (w.date || w.created_at || '').split('T')[0];
+  const isC = w => !!(w.isCardio || w.is_cardio);
+  const isM = w => !!(w.isMobility || w.is_mobility);
+
+  const byDate = {};
+  workouts.forEach(w => {
+    const dk = getDateKey(w);
+    if (!byDate[dk]) byDate[dk] = [];
+    byDate[dk].push(w);
+  });
+
+  const usedIds = new Set();
+  const result = [];
+  const sorted = [...workouts].sort((a, b) =>
+    new Date(b.date || b.created_at || 0) - new Date(a.date || a.created_at || 0)
+  );
+
+  sorted.forEach(w => {
+    if (usedIds.has(w.id)) return;
+    // Already combined in new format
+    if (isC(w) && isM(w)) { result.push(w); usedIds.add(w.id); return; }
+
+    const dk = getDateKey(w);
+    const dayList = byDate[dk] || [];
+
+    if (isC(w) && !isM(w)) {
+      const partner = dayList.find(p => isM(p) && !isC(p) && !usedIds.has(p.id) && p.id !== w.id);
+      if (partner) {
+        usedIds.add(w.id); usedIds.add(partner.id);
+        const baseName = w.plan_name || w.planName || '';
+        result.push({
+          ...w,
+          is_mobility: true, isMobility: true,
+          completed: partner.completed, total: partner.total, focus: partner.focus,
+          plan_name: `${baseName} + Mobility`, planName: `${baseName} + Mobility`,
+        });
+        return;
+      }
+    }
+
+    if (isM(w) && !isC(w)) {
+      const partner = dayList.find(p => isC(p) && !isM(p) && !usedIds.has(p.id) && p.id !== w.id);
+      if (partner) {
+        usedIds.add(w.id); usedIds.add(partner.id);
+        const baseName = partner.plan_name || partner.planName || '';
+        result.push({
+          ...partner,
+          is_mobility: true, isMobility: true,
+          completed: w.completed, total: w.total, focus: w.focus,
+          plan_name: `${baseName} + Mobility`, planName: `${baseName} + Mobility`,
+        });
+        return;
+      }
+    }
+
+    usedIds.add(w.id);
+    result.push(w);
+  });
+
+  return result;
+}
+
 // ===== MOTIVATION QUOTES =====
 const MOTIVATION_QUOTES = [
   { text: 'Wer nicht trainiert, hat keine Entschuldigungen – nur Ergebnisse, die fehlen.', author: 'Markus Rühl' },
@@ -42,6 +107,22 @@ const MOTIVATION_QUOTES = [
   { text: 'You can have results or excuses. Not both.', author: 'Arnold Schwarzenegger' },
   { text: 'Champions aren\'t made in gyms. Champions are made from something deep inside.', author: 'Arnold Schwarzenegger' },
   { text: 'The mind always fails first, not the body.', author: 'Arnold Schwarzenegger' },
+  { text: 'I don\'t do this to be the best. I do this because it\'s who I am.', author: 'Chris Bumstead' },
+  { text: 'Every day you wake up is an opportunity to be better than yesterday.', author: 'Chris Bumstead' },
+  { text: 'You\'re not tired. You\'re just weak. And that\'s fixable.', author: 'Chris Bumstead' },
+  { text: 'Consistency beats intensity. Show up every day, no matter what.', author: 'Chris Bumstead' },
+  { text: 'The only person you\'re competing with is who you were yesterday.', author: 'Chris Bumstead' },
+  { text: 'Hayatta bir şey var – ya yaparsın ya da yapmazsın. Orta yol yok.', author: 'Arda Saatçi' },
+  { text: 'Gym\'e gitmeye "istemiyorum" diyorsun – o his tam da gitmek zorunda olduğun anı gösterir.', author: 'Arda Saatçi' },
+  { text: 'Disiplin motivasyonu yener. Her zaman.', author: 'Arda Saatçi' },
+  { text: 'Başkasının sonucunu istemek yetmez – onun sürecini de isteyeceksin.', author: 'Arda Saatçi' },
+  { text: 'Kendine yaptığın her yatırım sana geri döner. Kas olarak, özgüven olarak, hayat olarak.', author: 'Arda Saatçi' },
+  { text: 'Der Kessel muss brennen!', author: 'Lion Kings' },
+  { text: 'Wer rastet, der rostet. Wer trainiert, der glänzt.', author: 'Lion Kings' },
+  { text: 'Heute schmerzt es. Morgen bist du stärker. Übermorgen ist es dein Standard.', author: 'Lion Kings' },
+  { text: 'Das hier ist kein Hobby. Das ist eine Lebensweise.', author: 'Lion Kings' },
+  { text: 'Jeder Satz zählt. Jede Wiederholung formt dich.', author: 'Lion Kings' },
+  { text: 'Träume wachsen nicht im Bett. Muskeln auch nicht.', author: 'Lion Kings' },
 ];
 
 const CHEER_MESSAGES = [
@@ -652,7 +733,7 @@ export default function App() {
         <nav className="app-nav">
           <div className="app-nav-inner max-w-2xl mx-auto w-full">
             <NavBtn icon={Home} label="Heute" active={screen==='home'} onClick={() => setScreen('home')} />
-            <NavBtn icon={Users} label="Löwen" active={screen==='dashboard'} onClick={() => setScreen('dashboard')} />
+            <NavBtn icon={Users} label="Crew" active={screen==='dashboard'} onClick={() => setScreen('dashboard')} />
             <NavBtn icon={Sparkles} label="Coach" active={screen==='coach'} onClick={() => setScreen('coach')} />
             <NavBtn icon={History} label="Verlauf" active={screen==='history'} onClick={() => setScreen('history')} />
             <NavBtn icon={Calendar} label="Plan" active={screen==='plan'} onClick={() => setScreen('plan')} />
@@ -677,116 +758,121 @@ function NavBtn({ icon: Icon, label, active, onClick }) {
 }
 
 const SPARKS = [
-  { top: '12%', left:  '7%', char: '✦', color: '#ef4444', delay: '0ms',   size: 22 },
-  { top: '10%', left: '88%', char: '⚡', color: '#f97316', delay: '80ms',  size: 18 },
-  { top: '22%', left: '94%', char: '✦', color: '#ffffff', delay: '180ms', size: 14 },
-  { top: '68%', left:  '4%', char: '★', color: '#ef4444', delay: '120ms', size: 18 },
-  { top: '78%', left: '91%', char: '✦', color: '#f97316', delay: '40ms',  size: 24 },
-  { top: '44%', left:  '2%', char: '⚡', color: '#ffffff', delay: '220ms', size: 16 },
-  { top: '58%', left: '96%', char: '★', color: '#ef4444', delay: '160ms', size: 14 },
-  { top: '87%', left: '18%', char: '✦', color: '#f97316', delay: '100ms', size: 20 },
-  { top: '82%', left: '75%', char: '⚡', color: '#ffffff', delay: '260ms', size: 16 },
-  { top:  '5%', left: '50%', char: '★', color: '#ef4444', delay: '50ms',  size: 18 },
+  { top: '8%',  left:  '5%', char: '✦', color: '#ef4444', delay: '0ms',   size: 22 },
+  { top: '6%',  left: '88%', char: '⚡', color: '#f97316', delay: '60ms',  size: 20 },
+  { top: '18%', left: '96%', char: '✦', color: '#fff',    delay: '140ms', size: 14 },
+  { top: '72%', left:  '2%', char: '★', color: '#ef4444', delay: '100ms', size: 18 },
+  { top: '80%', left: '92%', char: '✦', color: '#f97316', delay: '30ms',  size: 24 },
+  { top: '42%', left:  '1%', char: '⚡', color: '#fff',    delay: '200ms', size: 16 },
+  { top: '60%', left: '97%', char: '★', color: '#ef4444', delay: '130ms', size: 14 },
+  { top: '88%', left: '15%', char: '✦', color: '#f97316', delay: '80ms',  size: 20 },
+  { top: '84%', left: '78%', char: '⚡', color: '#fff',    delay: '230ms', size: 16 },
+  { top:  '3%', left: '50%', char: '★', color: '#ef4444', delay: '40ms',  size: 18 },
+  { top: '35%', left: '98%', char: '✦', color: '#fbbf24', delay: '170ms', size: 12 },
+  { top: '55%', left:  '0%', char: '⚡', color: '#fbbf24', delay: '250ms', size: 14 },
 ];
 
 function CelebrationOverlay({ message, nextExercise, onDone }) {
-  const [fading, setFading] = React.useState(false);
+  const [phase, setPhase] = React.useState('impact');
 
   React.useEffect(() => {
-    // Escalating vibration: short pulses → longer bursts over 3 seconds
-    if (navigator.vibrate) {
-      navigator.vibrate([
-        80, 60,          // beat 1
-        100, 50,         // beat 2
-        120, 40,         // beat 3
-        150, 35,         // beat 4
-        180, 30,         // beat 5
-        220, 25,         // beat 6 – climax
-        300,             // long final buzz
-      ]);
-    }
-    const t1 = setTimeout(() => setFading(true), 3200);
-    const t2 = setTimeout(onDone, 4000);
-    return () => {
-      clearTimeout(t1); clearTimeout(t2);
-      if (navigator.vibrate) navigator.vibrate(0);
-    };
+    if (navigator.vibrate) navigator.vibrate([100, 30, 180, 25, 260, 20, 180, 15, 120, 10, 80, 30, 400]);
+    playBeep(); setTimeout(() => playBeep(), 180);
+    const t1 = setTimeout(() => setPhase('hold'), 600);
+    const t2 = setTimeout(() => setPhase('fade'), 3400);
+    const t3 = setTimeout(onDone, 4100);
+    return () => { clearTimeout(t1); clearTimeout(t2); clearTimeout(t3); if (navigator.vibrate) navigator.vibrate(0); };
   }, []);
 
   const handleTap = () => {
-    if (!fading) {
+    if (phase !== 'fade') {
       if (navigator.vibrate) navigator.vibrate(0);
-      setFading(true);
-      setTimeout(onDone, 600);
+      setPhase('fade');
+      setTimeout(onDone, 500);
     }
   };
 
+  // Separate emoji from text for correct centering
+  const msgClean = message.replace(/[\p{Emoji_Presentation}\p{Extended_Pictographic}]/gu, '').trim();
+  const msgEmoji = [...message].filter(c => /\p{Emoji_Presentation}/u.test(c)).join('');
+
   return (
-    <div
-      onClick={handleTap}
+    <div onClick={handleTap}
       className="fixed inset-0 z-50 flex flex-col items-center justify-center overflow-hidden select-none"
       style={{
-        background: 'radial-gradient(ellipse at 50% 38%, #3f0a0a 0%, #0c0101 55%, #0a0a0a 100%)',
-        opacity: fading ? 0 : 1,
-        transition: 'opacity 0.7s ease',
+        background: 'radial-gradient(ellipse at 50% 40%, #200505 0%, #0d0101 45%, #04020a 80%, #000 100%)',
+        opacity: phase === 'fade' ? 0 : 1,
+        transition: phase === 'fade' ? 'opacity 0.6s ease' : 'none',
         paddingTop: 'env(safe-area-inset-top)',
         paddingBottom: 'env(safe-area-inset-bottom)',
       }}
     >
-      {/* Fire border — inset box-shadow rings around the whole screen */}
+      {/* White impact flash */}
+      <div style={{ position: 'absolute', inset: 0, background: 'white', animation: 'impactFlash 0.4s ease-out both', pointerEvents: 'none', zIndex: 1 }} />
+
+      {/* Fire border */}
+      <div style={{ position: 'absolute', inset: 0, animation: 'fireEdge 4s ease-in-out both', pointerEvents: 'none', zIndex: 2 }} />
+
+      {/* Energy aura glow behind text */}
       <div style={{
-        position: 'absolute', inset: 0, pointerEvents: 'none', borderRadius: 0,
-        animation: 'fireEdge 4s ease-in-out both',
+        position: 'absolute', width: 280, height: 280, borderRadius: '50%',
+        background: 'radial-gradient(circle, rgba(239,68,68,0.18) 0%, transparent 70%)',
+        animation: 'auraGlow 1.2s ease-in-out 0.2s infinite',
+        pointerEvents: 'none', zIndex: 2,
       }} />
 
+      {/* Expanding energy rings */}
+      {[0, 1, 2, 3].map(i => (
+        <div key={i} style={{
+          position: 'absolute', width: 16, height: 16, borderRadius: '50%',
+          border: `2px solid rgba(239,${68 + i * 20},68,${0.85 - i * 0.15})`,
+          animation: `energyRing 0.7s cubic-bezier(0,0.4,0.6,1) ${i * 100}ms both`,
+          pointerEvents: 'none', zIndex: 2,
+        }} />
+      ))}
+
+      {/* Sparks */}
       {SPARKS.map((s, i) => (
         <div key={i} style={{
           position: 'absolute', top: s.top, left: s.left,
           fontSize: s.size, color: s.color, pointerEvents: 'none',
-          animation: `celebSpark 2s ease-out ${s.delay} both`,
-        }}>
-          {s.char}
-        </div>
+          animation: `celebSpark 1.6s ease-out ${s.delay} both`, zIndex: 3,
+        }}>{s.char}</div>
       ))}
 
-      {/* Check circle with pulse */}
-      <div style={{ animation: 'celebScale 0.38s cubic-bezier(0.34,1.56,0.64,1) both' }}>
-        <div style={{
-          width: 80, height: 80, borderRadius: '50%',
-          border: '2px solid #ef4444',
-          background: 'rgba(239,68,68,0.12)',
-          display: 'flex', alignItems: 'center', justifyContent: 'center',
-          marginBottom: 28,
-          animation: 'celebPulse 1s ease-in-out 0.4s 3',
-        }}>
-          <svg width="38" height="38" viewBox="0 0 24 24" fill="none"
-            stroke="#f87171" strokeWidth={2.5} strokeLinecap="round" strokeLinejoin="round">
-            <path d="M5 13l4 4L19 7" />
-          </svg>
+      {/* Main impact block */}
+      <div style={{ position: 'relative', zIndex: 4, textAlign: 'center', animation: 'powerImpact 0.32s cubic-bezier(0.34,1.56,0.64,1) both' }}>
+        {msgEmoji && (
+          <div style={{ fontSize: '2.8rem', lineHeight: 1, marginBottom: 6 }}>{msgEmoji}</div>
+        )}
+        <div className="font-display text-white"
+          style={{
+            fontSize: 'clamp(3rem, 14vw, 5rem)',
+            lineHeight: 0.92,
+            letterSpacing: '-0.01em',
+            textShadow: '0 0 25px rgba(239,68,68,1), 0 0 60px rgba(239,68,68,0.6), 5px 5px 0 rgba(0,0,0,0.9)',
+            WebkitTextStroke: '1px rgba(255,80,80,0.25)',
+            paddingLeft: '1rem', paddingRight: '1rem',
+          }}>
+          {msgClean}
         </div>
-      </div>
-
-      {/* Cheer message */}
-      <div className="font-display text-center text-white"
-        style={{
-          fontSize: 'clamp(2.8rem, 13vw, 4.5rem)',
-          lineHeight: 1.1,
-          paddingLeft: '1.5rem', paddingRight: '1.5rem',
-          textShadow: '0 0 50px rgba(239,68,68,0.6), 0 0 100px rgba(239,68,68,0.2)',
-          animation: 'celebScale 0.42s cubic-bezier(0.34,1.56,0.64,1) 0.07s both',
-        }}>
-        {message}
+        {/* Impact slash line */}
+        <div style={{
+          height: 3, marginTop: 10, marginLeft: '15%', marginRight: '15%',
+          background: 'linear-gradient(90deg, transparent, #ef4444 30%, #f97316 70%, transparent)',
+          animation: 'impactLine 0.35s ease 0.08s both',
+        }} />
       </div>
 
       {nextExercise && (
-        <div className="font-mono text-zinc-400 text-xs mt-5 uppercase tracking-widest"
-          style={{ animation: 'celebFadeUp 0.4s ease 0.35s both' }}>
+        <div className="font-mono text-zinc-400 text-xs mt-7 uppercase tracking-widest"
+          style={{ position: 'relative', zIndex: 4, animation: 'celebFadeUp 0.4s ease 0.5s both' }}>
           Weiter: {nextExercise}
         </div>
       )}
 
       <div className="font-mono text-zinc-700 text-xs absolute bottom-10"
-        style={{ animation: 'celebFadeUp 0.3s ease 1s both' }}>
+        style={{ zIndex: 4, animation: 'celebFadeUp 0.3s ease 1.2s both' }}>
         tippen zum überspringen
       </div>
     </div>
@@ -1715,7 +1801,7 @@ function WorkoutScreen({ workout, setWorkout, lastWeights, onFinish, onCancel, s
 }
 
 function HistoryScreen({ history, onDelete }) {
-  const entries = [...history].sort((a, b) => new Date(b.date) - new Date(a.date));
+  const entries = mergeCardioMobilityPairs([...history]).sort((a, b) => new Date(b.date) - new Date(a.date));
   const [expanded, setExpanded] = useState(new Set());
   const [swipedId, setSwipedId] = useState(null);
   const [confirmDeleteId, setConfirmDeleteId] = useState(null);
@@ -2796,7 +2882,7 @@ function DashboardScreen({ user, optionalDays = new Set() }) {
         s.user_id !== user.id &&
         new Date(s.updated_at).getTime() > threeMinAgo
       ));
-      setFeed(feedRows);
+      setFeed(mergeCardioMobilityPairs(feedRows));
 
       const ids = feedRows.map(w => w.id);
       const [reactionsMap, commentsMap] = await Promise.all([
@@ -2810,6 +2896,10 @@ function DashboardScreen({ user, optionalDays = new Set() }) {
       feedRows.forEach(w => {
         if (!byUser[w.user_id]) byUser[w.user_id] = [];
         byUser[w.user_id].push(w);
+      });
+      // Merge legacy same-day cardio+mobility pairs per user
+      Object.keys(byUser).forEach(uid => {
+        byUser[uid] = mergeCardioMobilityPairs(byUser[uid]);
       });
       setAllWorkoutsByUser(byUser);
     } catch (e) {
@@ -2895,13 +2985,13 @@ function DashboardScreen({ user, optionalDays = new Set() }) {
   };
 
   if (loading) {
-    return <div className="pt-2 text-zinc-500 font-mono text-sm">Lade Löwen-Daten...</div>;
+    return <div className="pt-2 text-zinc-500 font-mono text-sm">Lade Crew-Daten...</div>;
   }
 
   return (
     <div className="pt-2">
       <div className="mb-6">
-        <div className="font-mono text-xs text-zinc-500 uppercase tracking-widest mb-1">Die Löwen</div>
+        <div className="font-mono text-xs text-zinc-500 uppercase tracking-widest mb-1">Die Crew</div>
         <h1 className="font-display text-5xl text-zinc-100 leading-none">CREW<br/><span className="text-red-500">DASHBOARD</span></h1>
       </div>
 

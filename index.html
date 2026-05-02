@@ -120,6 +120,30 @@
         80%  { opacity: 1.0; box-shadow: inset 0 0  90px 32px rgba(251,191,36,0.7),  inset 0 0 160px 48px rgba(245,158,11,0.45); }
         100% { opacity: 0.0; box-shadow: inset 0 0  20px  6px rgba(251,191,36,0.0),  inset 0 0  40px 12px rgba(245,158,11,0.0); }
       }
+      @keyframes impactFlash {
+        0%   { opacity: 0.65; }
+        100% { opacity: 0; }
+      }
+      @keyframes energyRing {
+        0%   { transform: scale(0.05); opacity: 0.9; }
+        100% { transform: scale(30); opacity: 0; }
+      }
+      @keyframes powerImpact {
+        0%   { transform: scale(2.8) rotate(-4deg); opacity: 0; filter: blur(12px); }
+        55%  { transform: scale(0.88) rotate(1.5deg); opacity: 1; filter: blur(0); }
+        75%  { transform: scale(1.06) rotate(-0.5deg); }
+        88%  { transform: scale(0.97) rotate(0.3deg); }
+        100% { transform: scale(1) rotate(0deg); opacity: 1; }
+      }
+      @keyframes impactLine {
+        0%   { transform: scaleX(0); opacity: 0; }
+        60%  { opacity: 1; }
+        100% { transform: scaleX(1); opacity: 0.7; }
+      }
+      @keyframes auraGlow {
+        0%, 100% { opacity: 0.4; transform: scale(1); }
+        50%       { opacity: 0.9; transform: scale(1.08); }
+      }
       @keyframes fireEdge {
         0%   { opacity: 0.0; box-shadow: inset 0 0  20px  6px rgba(239, 68, 68, 0.0),  inset 0 0  40px 12px rgba(249,115,22,0.0); }
         20%  { opacity: 1.0; box-shadow: inset 0 0  60px 20px rgba(239, 68, 68, 0.55), inset 0 0 100px 30px rgba(249,115,22,0.3); }
