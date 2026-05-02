@@ -144,6 +144,19 @@
         0%, 100% { opacity: 0.4; transform: scale(1); }
         50%       { opacity: 0.9; transform: scale(1.08); }
       }
+      @keyframes inputShake {
+        0%   { transform: translateX(0); }
+        18%  { transform: translateX(-6px); }
+        36%  { transform: translateX(6px); }
+        54%  { transform: translateX(-5px); }
+        72%  { transform: translateX(4px); }
+        86%  { transform: translateX(-2px); }
+        100% { transform: translateX(0); }
+      }
+      .input-error {
+        border-color: #ef4444 !important;
+        animation: inputShake 0.45s ease both;
+      }
       @keyframes fireEdge {
         0%   { opacity: 0.0; box-shadow: inset 0 0  20px  6px rgba(239, 68, 68, 0.0),  inset 0 0  40px 12px rgba(249,115,22,0.0); }
         20%  { opacity: 1.0; box-shadow: inset 0 0  60px 20px rgba(239, 68, 68, 0.55), inset 0 0 100px 30px rgba(249,115,22,0.3); }
