@@ -358,6 +358,7 @@ export default function App() {
   const [combinedFlow, setCombinedFlow] = useState(false);
   const pendingCombinedCardioRef = useRef(null);
   const [showCustomModal, setShowCustomModal] = useState(false);
+  const [workoutComplete, setWorkoutComplete] = useState(null); // { planName, duration }
   const [planConfig, setPlanConfig] = useState(buildPlanData(null)); // { plan, schedule }
   const PLAN = planConfig.plan;
   const DAY_MAP = planConfig.schedule;
@@ -583,26 +584,37 @@ export default function App() {
     } catch (e) {}
   };
 
-  const finishWorkout = async (logs, extras = {}) => {
+  const finishWorkout = (logs, extras = {}) => {
     const duration = Math.floor((Date.now() - activeWorkout.startTime) / 60000);
-    const planKey = activeWorkout.planKey;
-    const planName = activeWorkout.plan.name;
-    const skippedExercises = extras.skippedExercises || [];
     clearLiveStatus(user.id);
     setActiveWorkout(null);
     setScreen('home');
+    // Store pending workout — modal will ask for notes, then call saveCompletedWorkout
+    setWorkoutComplete({
+      planKey: activeWorkout.planKey,
+      planName: activeWorkout.plan.name,
+      logs,
+      duration,
+      skippedExercises: extras.skippedExercises || [],
+    });
+  };
+
+  const saveCompletedWorkout = async (note) => {
+    const w = workoutComplete;
+    if (!w) return;
+    setWorkoutComplete(null);
     try {
       await persistWorkout({
         date: new Date().toISOString(),
-        planKey,
-        planName,
-        logs,
-        duration,
-        notes: '',
-        skippedExercises,
+        planKey: w.planKey,
+        planName: w.planName,
+        logs: w.logs,
+        duration: w.duration,
+        notes: note || '',
+        skippedExercises: w.skippedExercises,
       });
       const newLW = { ...lastWeights };
-      logs.forEach(l => {
+      w.logs.forEach(l => {
         if (l.sets.length > 0) {
           const heaviest = Math.max(...l.sets.map(s => parseFloat(s.weight) || 0));
           if (heaviest > 0) newLW[l.name] = heaviest;
@@ -662,8 +674,14 @@ export default function App() {
         </div>
       )}
 
+      {workoutComplete && (
+        <WorkoutCompleteModal
+          data={workoutComplete}
+          onClose={saveCompletedWorkout}
+        />
+      )}
 
-<div className="max-w-2xl mx-auto px-4 pb-24 relative z-10">
+      <div className="max-w-2xl mx-auto px-4 pb-24 relative z-10">
         {screen === 'home' && (
           <HomeScreen
             user={user}
@@ -857,6 +875,143 @@ function CelebrationOverlay({ message, nextExercise, onDone }) {
 }
 
 
+
+const VICTORY_SPARKS = [
+  { top: '6%',  left: '8%',  char: '✦', color: '#fbbf24', delay: '0ms',   size: 24 },
+  { top: '10%', left: '78%', char: '✦', color: '#fcd34d', delay: '120ms', size: 18 },
+  { top: '4%',  left: '42%', char: '⚡', color: '#f59e0b', delay: '60ms',  size: 26 },
+  { top: '16%', left: '18%', char: '✦', color: '#fbbf24', delay: '200ms', size: 14 },
+  { top: '8%',  left: '62%', char: '✦', color: '#fde68a', delay: '90ms',  size: 20 },
+  { top: '14%', left: '88%', char: '⚡', color: '#f59e0b', delay: '300ms', size: 16 },
+  { top: '20%', left: '50%', char: '✦', color: '#fbbf24', delay: '180ms', size: 13 },
+  { top: '18%', left: '32%', char: '✦', color: '#fcd34d', delay: '40ms',  size: 17 },
+  { top: '3%',  left: '26%', char: '✦', color: '#f59e0b', delay: '250ms', size: 15 },
+  { top: '12%', left: '95%', char: '✦', color: '#fbbf24', delay: '150ms', size: 12 },
+];
+
+function WorkoutCompleteModal({ data, onClose }) {
+  const [note, setNote] = React.useState('');
+  const [showStats, setShowStats] = React.useState(false);
+
+  React.useEffect(() => {
+    if (navigator.vibrate) navigator.vibrate([80,40,120,35,180,30,260,25,380,20,550,15,800]);
+    playBeep();
+    setTimeout(() => playBeep(), 350);
+    setTimeout(() => setShowStats(true), 500);
+  }, []);
+
+  const logs = data.logs || [];
+  const totalSets = logs.reduce((s, l) => s + (l.sets?.length || 0), 0);
+  const totalReps = logs.reduce((s, l) => s + (l.sets || []).reduce((r, set) => r + (parseInt(set.reps) || 0), 0), 0);
+  const totalVolume = Math.round(logs.reduce((s, l) => s + (l.sets || []).reduce((r, set) => r + (parseFloat(set.weight) || 0) * (parseInt(set.reps) || 0), 0), 0));
+  const exerciseCount = logs.filter(l => l.sets?.length > 0).length;
+
+  const ruehlQuotes = MOTIVATION_QUOTES.filter(q => q.author === 'Markus Rühl');
+  const q = ruehlQuotes[new Date().getDate() % ruehlQuotes.length];
+
+  const fade = { opacity: showStats ? 1 : 0, transform: showStats ? 'translateY(0)' : 'translateY(20px)', transition: 'opacity 0.55s ease, transform 0.55s ease' };
+
+  return (
+    <div className="fixed inset-0 z-50 overflow-y-auto"
+      style={{ background: 'radial-gradient(ellipse at 50% 18%, #1c0f00 0%, #0a0600 45%, #030303 100%)',
+               paddingTop: 'max(env(safe-area-inset-top), 1rem)', paddingBottom: 'env(safe-area-inset-bottom)' }}>
+
+      {/* Gold fire edge */}
+      <div style={{ position: 'fixed', inset: 0, pointerEvents: 'none', animation: 'victoryEdge 3.5s ease-in-out both' }} />
+
+      {VICTORY_SPARKS.map((s, i) => (
+        <div key={i} style={{ position: 'fixed', top: s.top, left: s.left, fontSize: s.size, color: s.color,
+          pointerEvents: 'none', animation: `celebSpark 2.8s ease-out ${s.delay} both` }}>
+          {s.char}
+        </div>
+      ))}
+
+      <div className="flex flex-col items-center px-6 pt-12 pb-10">
+
+        {/* Trophy */}
+        <div style={{ fontSize: 80, lineHeight: 1, marginBottom: 16,
+          animation: 'celebScale 0.55s cubic-bezier(0.34,1.56,0.64,1) 0.1s both',
+          filter: 'drop-shadow(0 0 32px rgba(251,191,36,0.7))' }}>
+          🏆
+        </div>
+
+        {/* TRAINING FERTIG */}
+        <div className="font-display text-center text-amber-400"
+          style={{ fontSize: 'clamp(2.8rem,13vw,4.5rem)', lineHeight: 1,
+            textShadow: '0 0 60px rgba(251,191,36,0.65), 0 0 120px rgba(251,191,36,0.25)',
+            animation: 'celebScale 0.48s cubic-bezier(0.34,1.56,0.64,1) 0.18s both' }}>
+          TRAINING
+        </div>
+        <div className="font-display text-center text-white"
+          style={{ fontSize: 'clamp(2.2rem,10vw,3.5rem)', lineHeight: 1, marginBottom: 6,
+            animation: 'celebFadeUp 0.4s ease 0.3s both' }}>
+          FERTIG!
+        </div>
+
+        <div className="font-mono text-sm text-amber-400/70 mb-1"
+          style={{ animation: 'celebFadeUp 0.4s ease 0.42s both' }}>
+          {data.planName.toUpperCase()}
+        </div>
+        {data.duration > 0 && (
+          <div className="font-mono text-xs text-zinc-500 mb-8"
+            style={{ animation: 'celebFadeUp 0.4s ease 0.5s both' }}>
+            {formatDuration(data.duration)}
+          </div>
+        )}
+
+        {/* Stats grid */}
+        <div className="w-full grid grid-cols-3 gap-3 mb-4" style={{ ...fade, transitionDelay: '0ms' }}>
+          {[
+            { label: 'Übungen', value: exerciseCount },
+            { label: 'Sätze',   value: totalSets },
+            { label: 'Wdh.',    value: totalReps },
+          ].map(({ label, value }) => (
+            <div key={label} className="bg-zinc-900/70 border border-amber-500/20 rounded-2xl p-4 text-center">
+              <div className="font-display text-3xl text-amber-400">{value}</div>
+              <div className="font-mono text-xs text-zinc-500 mt-1">{label}</div>
+            </div>
+          ))}
+        </div>
+
+        {totalVolume > 0 && (
+          <div className="w-full bg-zinc-900/70 border border-amber-500/20 rounded-2xl p-4 mb-6 text-center"
+            style={{ ...fade, transitionDelay: '80ms' }}>
+            <div className="font-mono text-xs text-zinc-500 uppercase tracking-widest mb-1">Gesamtvolumen</div>
+            <div className="font-display text-4xl text-amber-400">
+              {totalVolume.toLocaleString('de-DE')} <span className="text-xl text-zinc-500">kg</span>
+            </div>
+          </div>
+        )}
+
+        {/* Notes */}
+        <div className="w-full mb-5" style={{ ...fade, transitionDelay: '160ms' }}>
+          <div className="font-mono text-xs text-zinc-500 uppercase tracking-widest mb-2">Notiz zum Training</div>
+          <textarea
+            value={note}
+            onChange={e => setNote(e.target.value)}
+            placeholder="Wie lief's? Gewicht, Gefühl, Besonderheiten..."
+            rows={3}
+            className="w-full bg-zinc-900/70 border border-zinc-700 rounded-xl px-3 py-2 text-sm text-zinc-100 placeholder:text-zinc-600 focus:border-amber-500/50 focus:outline-none resize-none"
+          />
+        </div>
+
+        {/* Quote */}
+        <div className="w-full border-t border-zinc-800 pt-4 mb-7 text-center"
+          style={{ ...fade, transitionDelay: '240ms' }}>
+          <div className="text-zinc-300 text-sm font-mono italic leading-snug">„{q.text}"</div>
+          {q.author && <div className="text-zinc-500 text-xs font-mono mt-2">— {q.author}</div>}
+        </div>
+
+        {/* CTA */}
+        <button onClick={() => onClose(note)}
+          className="w-full text-black font-display text-xl py-4 rounded-xl"
+          style={{ background: 'linear-gradient(135deg, #fbbf24, #f59e0b)', ...fade, transitionDelay: '320ms' }}>
+          WEITER →
+        </button>
+      </div>
+    </div>
+  );
+}
 
 // ===== RELEASE NOTES =====
 
@@ -1653,6 +1808,7 @@ function HistoryScreen({ history, onDelete }) {
   const entries = mergeCardioMobilityPairs([...history]).sort((a, b) => new Date(b.date) - new Date(a.date));
   const [expanded, setExpanded] = useState(new Set());
   const [swipedId, setSwipedId] = useState(null);
+  const [confirmDeleteIds, setConfirmDeleteIds] = useState(null);
   const swipeStartX = useRef(0);
 
   const toggle = (id) => {
@@ -1688,8 +1844,27 @@ function HistoryScreen({ history, onDelete }) {
 
   return (
     <div className="pt-2">
+      {/* Delete confirmation popup */}
+      {confirmDeleteIds && (
+        <div className="fixed inset-0 bg-zinc-950/90 z-50 flex items-center justify-center p-6">
+          <div className="bg-zinc-900 border border-zinc-800 rounded-2xl p-6 max-w-sm w-full text-center">
+            <div className="font-display text-xl text-zinc-100 mb-2">WORKOUT LÖSCHEN?</div>
+            <div className="font-mono text-xs text-zinc-500 mb-6">Das kann nicht rückgängig gemacht werden.</div>
+            <div className="flex gap-2">
+              <button onClick={() => { setConfirmDeleteIds(null); setSwipedId(null); }}
+                className="flex-1 bg-zinc-800 text-zinc-300 font-mono text-sm py-3 rounded-xl">
+                Abbrechen
+              </button>
+              <button onClick={() => { onDelete(confirmDeleteIds); setConfirmDeleteIds(null); setSwipedId(null); }}
+                className="flex-1 bg-red-600 text-white font-display text-base py-3 rounded-xl flex items-center justify-center gap-2">
+                <Trash2 className="w-4 h-4" /> Löschen
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
-<div className="mb-6 flex items-end justify-between">
+      <div className="mb-6 flex items-end justify-between">
         <div>
           <div className="font-mono text-xs text-zinc-500 uppercase tracking-widest mb-1">Trainings-Verlauf</div>
           <h1 className="font-display text-5xl text-zinc-100">HISTORY</h1>
@@ -1707,7 +1882,7 @@ function HistoryScreen({ history, onDelete }) {
             <div key={e.id} className="relative rounded-xl overflow-hidden">
               {/* Delete button revealed by swipe */}
               <div className="absolute right-0 top-0 bottom-0 w-20 bg-red-600 flex items-center justify-center rounded-r-xl">
-                <button onClick={() => { onDelete(e._allIds || [e.id]); setSwipedId(null); }} className="flex flex-col items-center gap-1">
+                <button onClick={() => setConfirmDeleteIds(e._allIds || [e.id])} className="flex flex-col items-center gap-1">
                   <Trash2 className="w-5 h-5 text-white" />
                   <span className="font-mono text-[10px] text-white">Löschen</span>
                 </button>
