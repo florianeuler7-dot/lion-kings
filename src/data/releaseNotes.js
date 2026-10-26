@@ -9,6 +9,20 @@
 
 const RELEASE_NOTES = [
   {
+    version: "2.1.0",
+    date: "2026-10-26",
+    title: "Game on",
+    highlights: [
+      "Der Arc startet heute: Tag 0 von 156",
+      "XP und Level: jedes Workout bringt Punkte, Streaks geben Bonus",
+      "Badges für Meilensteine (10 Workouts, 7-Tage-Streak, 10 t bewegt …)",
+      "Neue Abschluss-Animation: Konfetti, hochzählende Stats, Level-up",
+      "Neues App-Icon: Hantel vor Schneeflocke",
+    ],
+    thanks: null,
+    motto: "Tag 0. Ab jetzt zählt jeder Satz.",
+  },
+  {
     version: "2.0.0",
     date: "2026-10-26",
     title: "WinterArc 26/27",

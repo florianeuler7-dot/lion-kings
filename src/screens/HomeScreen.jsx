@@ -1,11 +1,13 @@
 import React, { useEffect, useState } from 'react';
-import { Dumbbell, Play, Check, ChevronDown, Flame, Heart, Activity, Plus, Camera, LogOut, X, Droplets, Footprints, Salad, Snowflake, AlertTriangle, Target, CalendarCheck } from 'lucide-react';
+import { Dumbbell, Play, Check, ChevronDown, Flame, Heart, Activity, Plus, Camera, LogOut, X, Droplets, Footprints, Salad, Snowflake, AlertTriangle, Target, CalendarCheck, Zap, Award } from 'lucide-react';
 import Avatar from '../components/Avatar';
 import { Card, Button, SectionLabel, ListRow, Stat, Sheet, IconButton, Wordmark, Chip, ProgressBar, ProgressRing } from '../components/ui';
+import CountUp from '../components/CountUp';
 import RELEASE_NOTES from '../data/releaseNotes';
 import { quoteOfTheDay } from '../data/quotes';
 import { arcProgress, weeklyGoalFromSchedule } from '../data/arc';
-import { getUserHabits, setUserHabits } from '../supabase';
+import { totalXp, levelFromXp, levelTitle, unlockedBadges, BADGES } from '../lib/xp';
+import { getUserHabits, setUserHabits, computeUserStats } from '../supabase';
 import { todayStr, toLocalDateStr, startOfWeek } from '../lib/date';
 import { readJSON, writeJSON } from '../lib/session';
 
@@ -76,16 +78,56 @@ function ArcCard() {
           <div className="label">Winter Arc</div>
           <div className="font-display text-2xl uppercase text-fg leading-none mt-1 tabular">
             {p.status === 'before' && `Start in ${p.daysUntil} ${p.daysUntil === 1 ? 'Tag' : 'Tagen'}`}
-            {p.status === 'active' && <>Tag {p.day} <span className="text-fg-faint">/ {p.total}</span></>}
+            {p.status === 'active' && <>Tag <CountUp value={p.done} duration={700} /> <span className="text-fg-faint">/ {p.total}</span></>}
             {p.status === 'done' && 'Arc abgeschlossen'}
           </div>
         </div>
         <div className="text-right shrink-0">
-          <div className="font-display text-3xl text-ice leading-none tabular">{p.pct}%</div>
+          <div className="font-display text-3xl text-ice leading-none tabular"><CountUp value={p.pct} duration={700} suffix="%" /></div>
           {p.status === 'active' && <div className="text-[11px] text-fg-faint mt-0.5">{p.daysLeft} Tage übrig</div>}
         </div>
       </div>
       <ProgressBar value={p.pct} color="bg-ice" className="mt-4" label="Winter Arc Fortschritt" />
+    </Card>
+  );
+}
+
+// ===== LEVEL / XP =====
+function LevelCard({ history, streak }) {
+  const xp = totalXp(history, streak);
+  const lv = levelFromXp(xp);
+  const badges = unlockedBadges(history, streak);
+  return (
+    <Card className="p-4 mb-7">
+      <div className="flex items-center gap-3">
+        <div className="w-12 h-12 rounded-2xl bg-ok/15 border border-ok/30 flex items-center justify-center shrink-0" aria-hidden="true">
+          <Zap className="w-6 h-6 text-ok" strokeWidth={2.5} />
+        </div>
+        <div className="flex-1 min-w-0">
+          <div className="flex items-baseline gap-2">
+            <div className="font-display text-3xl uppercase text-fg leading-none">Level {lv.level}</div>
+            <div className="text-xs font-bold text-ok uppercase tracking-wider">{levelTitle(lv.level)}</div>
+          </div>
+          <div className="text-xs text-fg-muted mt-1 tabular"><CountUp value={xp} duration={900} /> XP · {lv.needed - lv.intoLevel} bis Level {lv.level + 1}</div>
+        </div>
+        {streak > 0 && (
+          <div className="shrink-0 flex items-center gap-1 bg-accent/15 border border-accent/40 text-accent rounded-full px-2.5 py-1 text-xs font-bold tabular" aria-label={`${streak} Tage Streak`}>
+            <Flame className="w-3.5 h-3.5" aria-hidden="true" /> {streak}
+          </div>
+        )}
+      </div>
+      <ProgressBar value={lv.pct} color="bg-ok" className="mt-3" label="Level-Fortschritt" />
+      <div className="flex items-center gap-1.5 mt-3 flex-wrap">
+        {BADGES.map(b => {
+          const on = badges.some(x => x.id === b.id);
+          return (
+            <span key={b.id} title={b.label} aria-label={`${b.label}${on ? ' – freigeschaltet' : ' – gesperrt'}`}
+              className={`inline-flex items-center gap-1 rounded-full px-2 py-1 text-[10px] font-bold border ${on ? 'bg-gold/15 border-gold/50 text-gold' : 'bg-surface-2/60 border-line text-fg-faint'}`}>
+              <Award className="w-3 h-3" aria-hidden="true" /> {b.label}
+            </span>
+          );
+        })}
+      </div>
     </Card>
   );
 }
@@ -265,6 +307,8 @@ export default function HomeScreen({ user, onLogout, onChangeAvatar, plan: PLAN,
   const weeklyGoal = weeklyGoalFromSchedule(schedule);
   const weekPct = Math.min(100, (thisWeek / weeklyGoal) * 100);
   const quote = quoteOfTheDay();
+  const optionalDays = new Set((schedule || []).map((v, i) => (v === 'rest' || v === 'cardio_optional' ? i : -1)).filter(i => i >= 0));
+  const streak = computeUserStats(history, optionalDays).streak;
 
   const handleStart = () => {
     if (isAnyCardio) {
@@ -388,11 +432,13 @@ export default function HomeScreen({ user, onLogout, onChangeAvatar, plan: PLAN,
                 <div className="text-[9px] font-bold tracking-widest text-fg-faint uppercase mt-0.5">Woche</div>
               </ProgressRing>
             </Card>
-            <Stat icon={Flame} iconClass="text-accent" value={totalWorkouts} label="Workouts" sub="gesamt" />
+            <Stat icon={Flame} iconClass="text-accent" value={<CountUp value={totalWorkouts} duration={800} />} label="Workouts" sub="gesamt" />
             <Stat icon={Target} iconClass="text-ice" value={weeklyGoal} label="Ziel" sub="pro Woche" />
           </>
         )}
       </div>
+
+      {!(dataLoading && history.length === 0) && <LevelCard history={history} streak={streak} />}
 
       <GoldenRules userId={user.id} />
 

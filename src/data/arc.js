@@ -5,7 +5,7 @@ import { toLocalDateStr } from '../lib/date';
 export const ARC = {
   name: 'WinterArc',
   season: '26/27',
-  start: '2026-10-01',
+  start: '2026-10-26',   // day 0 – counter starts here
   end: '2027-03-31',
 };
 
@@ -16,25 +16,26 @@ function parseLocal(iso) {
   return new Date(y, m - 1, d, 0, 0, 0, 0);
 }
 
-// Returns { status: 'before'|'active'|'done', day, total, pct, daysLeft, daysUntil }
+// Returns { status: 'before'|'active'|'done', done, total, pct, daysLeft, daysUntil }
+// `done` = full days completed since the start (0 on the first day).
 export function arcProgress(now = new Date()) {
   const start = parseLocal(ARC.start);
   const end = parseLocal(ARC.end);
   const today = parseLocal(toLocalDateStr(now));
-  const total = Math.round((end - start) / DAY) + 1;
+  const total = Math.round((end - start) / DAY);
   if (today < start) {
-    return { status: 'before', day: 0, total, pct: 0, daysLeft: total, daysUntil: Math.round((start - today) / DAY) };
+    return { status: 'before', done: 0, total, pct: 0, daysLeft: total, daysUntil: Math.round((start - today) / DAY) };
   }
   if (today > end) {
-    return { status: 'done', day: total, total, pct: 100, daysLeft: 0, daysUntil: 0 };
+    return { status: 'done', done: total, total, pct: 100, daysLeft: 0, daysUntil: 0 };
   }
-  const day = Math.round((today - start) / DAY) + 1;
+  const done = Math.round((today - start) / DAY);
   return {
     status: 'active',
-    day,
+    done,
     total,
-    pct: Math.round((day / total) * 100),
-    daysLeft: total - day,
+    pct: Math.round((done / total) * 100),
+    daysLeft: total - done,
     daysUntil: 0,
   };
 }

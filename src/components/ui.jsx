@@ -205,10 +205,21 @@ export function RankBadge({ rank }) {
 }
 
 // ── Progress ring ────────────────────────────────────────────────────────────
-export function ProgressRing({ value = 0, size = 220, stroke = 10, color = '#f97316', track = 'rgba(148,163,184,0.15)', children, label }) {
+// Animate from 0 to the first value on mount, then follow value changes
+function useAnimatedValue(value) {
+  const [shown, setShown] = React.useState(0);
+  React.useEffect(() => {
+    const id = requestAnimationFrame(() => setShown(value));
+    return () => cancelAnimationFrame(id);
+  }, [value]);
+  return shown;
+}
+
+export function ProgressRing({ value = 0, size = 220, stroke = 10, color = '#f97316', track = 'rgba(148,163,184,0.15)', children, label, animate = true }) {
   const r = (size - stroke) / 2;
   const c = 2 * Math.PI * r;
-  const pct = Math.min(100, Math.max(0, value));
+  const animated = useAnimatedValue(value);
+  const pct = Math.min(100, Math.max(0, animate ? animated : value));
   return (
     <div className="relative inline-flex items-center justify-center" style={{ width: size, height: size }} role="progressbar" aria-valuenow={Math.round(pct)} aria-valuemin={0} aria-valuemax={100} aria-label={label}>
       <svg width={size} height={size} className="-rotate-90" aria-hidden="true">
@@ -218,7 +229,7 @@ export function ProgressRing({ value = 0, size = 220, stroke = 10, color = '#f97
           stroke={color} strokeWidth={stroke} fill="none" strokeLinecap="round"
           strokeDasharray={c}
           strokeDashoffset={c - (pct / 100) * c}
-          style={{ transition: 'stroke-dashoffset 0.4s ease, stroke 0.4s ease', filter: `drop-shadow(0 0 10px ${color}66)` }}
+          style={{ transition: 'stroke-dashoffset 0.9s cubic-bezier(0.2, 0.8, 0.2, 1), stroke 0.4s ease', filter: `drop-shadow(0 0 10px ${color}66)` }}
         />
       </svg>
       <div className="absolute inset-0 flex flex-col items-center justify-center">{children}</div>
@@ -226,11 +237,12 @@ export function ProgressRing({ value = 0, size = 220, stroke = 10, color = '#f97
   );
 }
 
-export function ProgressBar({ value = 0, color = 'bg-accent', className = '', label }) {
-  const pct = Math.min(100, Math.max(0, value));
+export function ProgressBar({ value = 0, color = 'bg-accent', className = '', label, animate = true }) {
+  const animated = useAnimatedValue(value);
+  const pct = Math.min(100, Math.max(0, animate ? animated : value));
   return (
-    <div className={`h-2 bg-surface-2 rounded-full overflow-hidden ${className}`} role="progressbar" aria-valuenow={Math.round(pct)} aria-valuemin={0} aria-valuemax={100} aria-label={label}>
-      <div className={`h-full ${color} rounded-full transition-all duration-300`} style={{ width: `${pct}%` }} />
+    <div className={`h-2 bg-surface-2 rounded-full overflow-hidden ${className}`} role="progressbar" aria-valuenow={Math.round(Math.min(100, Math.max(0, value)))} aria-valuemin={0} aria-valuemax={100} aria-label={label}>
+      <div className={`h-full ${color} rounded-full`} style={{ width: `${pct}%`, transition: 'width 0.9s cubic-bezier(0.2, 0.8, 0.2, 1)' }} />
     </div>
   );
 }
