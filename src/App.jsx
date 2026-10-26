@@ -24,6 +24,23 @@ export default function App() {
   );
 }
 
+// Turn a Supabase / fetch error into something a human can act on
+export function describeError(e) {
+  const msg = e?.message || e?.details || e?.error_description || (typeof e === 'string' ? e : '') || '';
+  const code = e?.code ? ` [${e.code}]` : '';
+  const status = e?.status || e?.statusCode;
+  if (/Failed to fetch|NetworkError|Load failed|fetch failed/i.test(msg)) {
+    return 'Keine Verbindung zur Datenbank (Supabase nicht erreichbar – Projekt pausiert oder offline?)';
+  }
+  if (status === 401 || /JWT|Invalid API key|apikey/i.test(msg)) {
+    return `Datenbank lehnt den Zugriff ab (${status || 401}): ${msg}`;
+  }
+  if (status === 503 || status === 540 || /paused/i.test(msg)) {
+    return 'Supabase-Projekt ist pausiert. Im Supabase-Dashboard „Restore project“ klicken.';
+  }
+  return `${msg || 'Unbekannter Fehler'}${code}${status ? ` (HTTP ${status})` : ''}`;
+}
+
 function Splash({ fading }) {
   return (
     <div className="fixed inset-0 z-[200] bg-ink flex items-center justify-center pointer-events-none"
@@ -90,11 +107,14 @@ function Shell() {
   }, [user]);
 
   // Load workouts and plan when user is set
+  const [loadError, setLoadError] = useState(null);
+  const [loadAttempt, setLoadAttempt] = useState(0);
   useEffect(() => {
     if (!user) return;
     let cancelled = false;
     (async () => {
       setDataLoading(true);
+      setLoadError(null);
       try {
         const [rows, customPlan] = await Promise.all([
           getUserWorkouts(user.id),
@@ -107,12 +127,12 @@ function Shell() {
         setPlanConfig(buildPlanData(customPlan));
       } catch (e) {
         console.error('Data load error:', e);
-        showToast('Daten konnten nicht geladen werden', 'error');
+        if (!cancelled) setLoadError(describeError(e));
       }
       if (!cancelled) setDataLoading(false);
     })();
     return () => { cancelled = true; };
-  }, [user?.id]);
+  }, [user?.id, loadAttempt]);
 
   // Scroll to top on screen change
   useEffect(() => { window.scrollTo(0, 0); }, [screen]);
@@ -142,9 +162,8 @@ function Shell() {
       session.setUser(updated);
       showToast('Profilbild aktualisiert', 'check');
     } catch (e) {
-      const msg = e?.message || e?.details || e?.code || String(e);
       console.error('Avatar update error:', e);
-      showToast(`Upload fehlgeschlagen: ${msg}`, 'error');
+      showToast(`Profilbild fehlgeschlagen: ${describeError(e)}`, 'error', 8000);
     }
   };
 
@@ -393,6 +412,8 @@ function Shell() {
             todayName={DAY_NAMES[today.getDay()]}
             history={history}
             dataLoading={dataLoading}
+            loadError={loadError}
+            onRetry={() => setLoadAttempt(n => n + 1)}
             onStart={() => startWorkout(todayKey)}
             onPickOther={(k) => startWorkout(k)}
             onStartCardio={() => { setCombinedFlow(false); setScreen('cardio'); }}
