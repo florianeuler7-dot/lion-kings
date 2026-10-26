@@ -5,3 +5,10 @@
 node_modules/
 package-lock.json
 deno.lock
+
+# Build
+dist/
+
+# Secrets
+.env
+.env.*

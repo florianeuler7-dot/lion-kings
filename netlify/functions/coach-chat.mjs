@@ -1,7 +1,10 @@
 // Netlify Function: coach-chat
-// Streams or returns a Claude response in the context of the LION KINGS coaching system
+// Returns a Claude response in the context of the NO EXCUSES coaching system
 
-const COACH_SYSTEM_BASE = `Du bist der Coach in der App "Lion Kings", einer Trainings-App für eine kleine Crew von ambitionierten Sportlern.
+const MODEL = 'claude-sonnet-5-5';
+const PLAN_KEYS = ['push', 'pull', 'legs', 'aesthetic', 'cardio', 'rest'];
+
+const COACH_SYSTEM_BASE = `Du bist der Coach in der App "NO EXCUSES", einer Trainings-App für eine kleine Crew von ambitionierten Sportlern.
 
 DEINE ROLLE:
 - Du erstellst, optimierst und besprichst Trainingspläne
@@ -24,8 +27,10 @@ PLAN-FORMAT (in JSON-Codeblock am Ende der Nachricht):
 
 REGELN:
 - "schedule": 7 Einträge für So, Mo, Di, Mi, Do, Fr, Sa – NUR diese exakten Keys erlaubt: "push", "pull", "legs", "aesthetic", "cardio", "rest" – NIEMALS andere Werte wie "cardio_optional", "rest_day" o.ä.
+- Bei weniger als 4 Krafttagen: lasse nicht benötigte Blöcke (z.B. "aesthetic") einfach weg
+- "sets" ist eine Zahl, "reps" ein String, "restSec" eine Zahl in Sekunden
 - restSec: 60–90 für Isolation, 120–180 für Grundübungen
-- Antworte chat-freundlich, nicht wie ein Wall-of-Text
+- Antworte chat-freundlich, nicht wie ein Wall-of-Text, kein Markdown-Überschriften-Spam
 - Wenn du noch Infos brauchst: KEIN JSON ausgeben, nur weiterfragen
 - Wenn der User nur eine Frage stellt (z.B. "soll ich mehr Volumen machen?"), antworte ohne JSON – nur Beratung`;
 
@@ -34,10 +39,36 @@ function buildSystemPrompt(currentPlan, onboarding) {
   if (onboarding) {
     prompt += `\n\nKONTEXT: Der User ist gerade im Onboarding und erstellt seinen ersten Plan. Frage gezielt nach Trainingstagen, Ziel, Erfahrung und Cardio-Präferenz – dann erstelle den Plan.`;
   }
-  if (currentPlan) {
-    prompt += `\n\nAKTUELLER PLAN DES USERS:\n${JSON.stringify(currentPlan, null, 2)}\n\nBerücksichtige diesen Plan bei deinen Antworten. Bei Plan-Änderungen: nur die nötigen Sachen anpassen, den Rest beibehalten.`;
+  if (currentPlan && typeof currentPlan === 'object') {
+    // Only pass the keys the model is allowed to produce (strip app-internal "cardio_optional")
+    const slim = {};
+    for (const k of PLAN_KEYS) if (currentPlan[k]) slim[k] = currentPlan[k];
+    if (Array.isArray(currentPlan.schedule)) {
+      slim.schedule = currentPlan.schedule.map(k => (k === 'cardio_optional' ? 'cardio' : k));
+    }
+    prompt += `\n\nAKTUELLER PLAN DES USERS:\n${JSON.stringify(slim, null, 2)}\n\nBerücksichtige diesen Plan bei deinen Antworten. Bei Plan-Änderungen: nur die nötigen Sachen anpassen, den Rest beibehalten.`;
   }
   return prompt;
+}
+
+const json = (body, status = 200) =>
+  new Response(JSON.stringify(body), { status, headers: { 'Content-Type': 'application/json' } });
+
+// Anthropic requires alternating roles starting with `user`.
+function sanitizeMessages(messages) {
+  const out = [];
+  for (const m of messages) {
+    if (!m || (m.role !== 'user' && m.role !== 'assistant')) continue;
+    const content = String(m.content ?? '').trim();
+    if (!content) continue;
+    if (out.length === 0 && m.role !== 'user') continue;          // drop leading assistant greeting
+    if (out.length && out[out.length - 1].role === m.role) {      // merge consecutive same-role
+      out[out.length - 1].content += `\n\n${content}`;
+    } else {
+      out.push({ role: m.role, content });
+    }
+  }
+  return out;
 }
 
 export default async (req) => {
@@ -45,22 +76,16 @@ export default async (req) => {
     return new Response('Method not allowed', { status: 405 });
   }
 
-  const apiKey = (process.env.COACH_API_KEY || Netlify.env.get('COACH_API_KEY') || '').trim();
-  if (!apiKey) {
-    return new Response(JSON.stringify({ error: 'API key not configured' }), {
-      status: 500,
-      headers: { 'Content-Type': 'application/json' },
-    });
-  }
+  const apiKey = (process.env.COACH_API_KEY || (globalThis.Netlify?.env?.get('COACH_API_KEY')) || '').trim();
+  if (!apiKey) return json({ error: 'API key not configured' }, 500);
 
   try {
     const { messages, currentPlan, onboarding } = await req.json();
     if (!messages || !Array.isArray(messages) || messages.length === 0) {
-      return new Response(JSON.stringify({ error: 'Keine Messages übergeben' }), {
-        status: 400,
-        headers: { 'Content-Type': 'application/json' },
-      });
+      return json({ error: 'Keine Messages übergeben' }, 400);
     }
+    const cleanMessages = sanitizeMessages(messages);
+    if (cleanMessages.length === 0) return json({ error: 'Keine Nachricht übergeben' }, 400);
 
     const controller = new AbortController();
     const timeout = setTimeout(() => controller.abort(), 25000);
@@ -74,22 +99,18 @@ export default async (req) => {
           'anthropic-version': '2023-06-01',
         },
         body: JSON.stringify({
-          model: 'claude-sonnet-4-5',
+          model: MODEL,
           max_tokens: 4096,
+          // Chat use case: keep latency low
+          output_config: { effort: 'low' },
           system: buildSystemPrompt(currentPlan, onboarding),
-          // Anthropic requires the first message to be from `user`.
-          // Filter out a leading assistant greeting if present.
-          messages: messages[0]?.role === 'assistant' ? messages.slice(1) : messages,
+          messages: cleanMessages,
         }),
         signal: controller.signal,
       });
     } catch (e) {
-      clearTimeout(timeout);
       if (e.name === 'AbortError') {
-        return new Response(JSON.stringify({ error: 'Coach antwortet nicht – nochmal versuchen.' }), {
-          status: 504,
-          headers: { 'Content-Type': 'application/json' },
-        });
+        return json({ error: 'Coach antwortet nicht – nochmal versuchen.' }, 504);
       }
       throw e;
     } finally {
@@ -99,38 +120,41 @@ export default async (req) => {
     if (!anthropicResp.ok) {
       const errText = await anthropicResp.text();
       console.error('Anthropic error:', errText);
-      return new Response(JSON.stringify({ error: 'Claude API error', detail: errText }), {
-        status: 500,
-        headers: { 'Content-Type': 'application/json' },
-      });
+      return json({ error: 'Coach gerade nicht erreichbar.', detail: errText }, 502);
     }
 
     const data = await anthropicResp.json();
-    const reply = data.content?.[0]?.text || '';
+
+    if (data.stop_reason === 'refusal') {
+      return json({ reply: 'Dabei kann ich leider nicht helfen. Frag mich gern was zu Training oder Ernährung.', plan: null });
+    }
+
+    // Response may contain thinking blocks before the text block – find the text explicitly.
+    const reply = (data.content || [])
+      .filter(b => b.type === 'text')
+      .map(b => b.text)
+      .join('\n')
+      .trim();
 
     // Detect if the reply contains a finished plan (JSON in code block)
     let plan = null;
-    const jsonMatch = reply.match(/```json\s*([\s\S]*?)```/);
+    const jsonMatch = reply.match(/```json\s*([\s\S]*?)```/i);
     if (jsonMatch) {
       try {
-        plan = JSON.parse(jsonMatch[1].trim());
+        const parsed = JSON.parse(jsonMatch[1].trim());
+        if (parsed && typeof parsed === 'object') plan = parsed;
       } catch (e) {
         console.error('Coach JSON parse error:', e);
       }
     }
 
     // Strip the JSON block from the visible reply
-    const visibleReply = reply.replace(/```json[\s\S]*?```/g, '').trim();
+    const visibleReply = reply.replace(/```json[\s\S]*?```/gi, '').trim()
+      || (plan ? 'Hier ist dein Plan.' : '…');
 
-    return new Response(JSON.stringify({ reply: visibleReply, plan }), {
-      status: 200,
-      headers: { 'Content-Type': 'application/json' },
-    });
+    return json({ reply: visibleReply, plan });
   } catch (e) {
     console.error('Function error:', e);
-    return new Response(JSON.stringify({ error: e.message }), {
-      status: 500,
-      headers: { 'Content-Type': 'application/json' },
-    });
+    return json({ error: e.message }, 500);
   }
 };

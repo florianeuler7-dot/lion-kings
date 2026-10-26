@@ -1,84 +1,87 @@
-# CUT.PHASE – Trainings-Agent
+# NO EXCUSES – Trainings-App für die Crew
 
-Dein persönlicher Trainings-Begleiter als Web-App. Installierbar auf dem Home Screen.
+Installierbare Web-App (PWA) für eine kleine Trainings-Crew: geführte Workouts,
+Cardio- und Mobility-Flows, gemeinsames Dashboard mit Leaderboard und Feed, und ein
+KI-Coach, der Trainingspläne erstellt und anpasst.
 
 ## Was die App kann
 
-- Erkennt automatisch den Wochentag und zeigt dir das richtige Training
-- Führt dich Übung für Übung durch
-- Fragt nach jedem Satz: Gewicht & Wiederholungen
-- Pausentimer startet automatisch (mit Vibration am Ende)
-- Erinnert alle 15 Min ans Trinken
-- Speichert deinen kompletten Verlauf
-- Zeigt dir letzte Gewichte als Referenz für Progression
+- Erkennt den Wochentag und zeigt das passende Training (eigener oder Default-Plan)
+- Führt Übung für Übung durch, fragt nach jedem Satz Gewicht & Wiederholungen
+- Pausentimer als Fortschrittsring, Benachrichtigung bei erreichter Pause (auch bei gesperrtem Screen)
+- Cardio-Timer (Zone-2 / HIIT) und Mobility-Programme zum Abhaken
+- Freies Training eintragen (Fußball, Schwimmen, …)
+- Verlauf mit Notizen, übersprungenen Übungen und Löschen
+- Crew-Dashboard: Live-Status, Leaderboard (Woche / 30 Tage), Activity-Feed mit Reaktionen & Kommentaren
+- Coach-Chat (Claude): Plan erstellen, anpassen, Fragen beantworten
+- Goldene Regeln (Wasser, Schritte, Ernährung) mit 7-Tage-Verlauf
 
----
+## Technik
 
-## Schnellster Weg zum Deployen (10 Minuten)
+| Bereich      | Stack                                                     |
+| ------------ | --------------------------------------------------------- |
+| Frontend     | React 18, Vite 5, Tailwind CSS v4 (Build, kein CDN)       |
+| Daten        | Supabase (Postgres + Realtime + Storage für Avatare)      |
+| KI           | Anthropic API über Netlify Functions (`netlify/functions`) |
+| Hosting      | Netlify (`netlify.toml`), PWA mit Service Worker          |
 
-### Schritt 1: Vercel-Account anlegen
-1. Gehe zu https://vercel.com
-2. „Sign Up" → mit GitHub, GitLab, Bitbucket oder E-Mail anmelden
-3. Kostenlos, keine Kreditkarte nötig
+### Projektstruktur
 
-### Schritt 2: Projekt deployen (Drag & Drop)
-1. Auf https://vercel.com/new
-2. Den ENTPACKTEN Ordner `cutphase-app` finden – aber **NICHT** den ganzen Ordner hochladen!
-3. Stattdessen: Klick auf **„Deploy"** im Vercel-Dashboard und wähle „Browse" 
-4. Den `cutphase-app`-Ordner auswählen
-
-**Alternative (zuverlässiger): Vercel CLI**
-
-Falls du Node.js installiert hast:
-```bash
-cd cutphase-app
-npm install
-npm install -g vercel
-vercel
 ```
-Folge den Prompts (Standard-Einstellungen reichen). Du bekommst eine URL wie `https://cutphase-app.vercel.app`.
+src/
+  App.jsx               App-Shell, Navigation, Workout-Lifecycle
+  supabase.js           Alle DB-Zugriffe + Backend-Calls
+  index.css             Design-Tokens, Utilities, Animationen
+  components/           ui.jsx (Primitives), Avatar, Toast, ErrorBoundary
+  screens/              Home, Workout, History, Plan, Cardio, Mobility, Dashboard, Coach, Onboarding
+  data/                 Default-Plan, Mobility-Programme, Zitate, Release Notes
+  lib/                  Datum (lokal!), Workout-Helfer, Geräte-APIs, Session
+netlify/functions/      coach-chat.mjs, parse-plan.mjs
+public/                 Icons, Manifest, sw.js
+```
 
-### Schritt 3: Auf den Home Screen
-**iPhone (Safari):**
-1. URL in Safari öffnen
-2. Teilen-Button (Quadrat mit Pfeil nach oben)
-3. „Zum Home-Bildschirm"
-4. Name vergeben → „Hinzufügen"
-5. App-Icon erscheint auf dem Home Screen
+## Lokal entwickeln
 
-**Android (Chrome):**
-1. URL in Chrome öffnen
-2. Drei-Punkte-Menü oben rechts
-3. „App installieren" oder „Zum Startbildschirm hinzufügen"
+Voraussetzung: Node.js ≥ 20.
 
-Fertig. Die App startet jetzt im Vollbild-Modus, fühlt sich an wie eine native App.
-
----
-
-## Lokal testen (optional)
-
-Wenn du Node.js installiert hast:
 ```bash
-cd cutphase-app
 npm install
 npm run dev
 ```
-Dann http://localhost:5173 im Browser öffnen.
 
----
+`npm run dev` startet Vite (http://localhost:5173) und einen kleinen lokalen Server für die
+Netlify Functions (Port 8889). Der Anthropic-API-Key wird in dieser Reihenfolge gesucht:
 
-## Daten
+1. Umgebungsvariable `COACH_API_KEY`
+2. Datei `.env` im Projekt (`COACH_API_KEY=sk-ant-...`, ist gitignored)
+3. `netlify env:get COACH_API_KEY` (Netlify CLI muss eingeloggt sein)
 
-Alle Daten werden lokal in deinem Browser gespeichert (`localStorage`). Wenn du den Browser-Cache löschst oder die App vom Home Screen entfernst, sind die Daten weg.
+Ohne Key läuft die App, nur der Coach antwortet mit einem Fehler.
 
-Für Backup: Im Browser → Developer Tools → Application → Local Storage → kopieren.
+## Deployen
 
----
+Die App wird über Netlify gebaut und ausgeliefert (`npm run build` → `dist/`).
+In den Netlify-Einstellungen muss die Umgebungsvariable `COACH_API_KEY` gesetzt sein.
 
-## Plan-Anpassungen
+Supabase-URL und Anon-Key stehen in `src/supabase.js`. Der Anon-Key ist öffentlich –
+Datenschutz hängt an den Row-Level-Security-Policies in Supabase.
 
-Der komplette Plan ist in `src/App.jsx` ganz oben in der Konstante `PLAN` definiert. Du kannst Übungen, Sätze, Wiederholungen und Pausenzeiten dort einfach anpassen.
+### Benötigte Supabase-Tabellen
 
-Nach Änderungen:
-- Lokal: Vite reloaded automatisch
-- Vercel: einfach `vercel --prod` ausführen, oder bei GitHub-Verknüpfung wird automatisch deployed
+`users`, `workouts`, `live_status`, `reactions`, `comments`, `daily_steps` sowie der
+Storage-Bucket `avatars`. Felder siehe `src/supabase.js`.
+
+## Auf den Home Screen
+
+**iPhone (Safari):** Teilen → „Zum Home-Bildschirm“.
+**Android (Chrome):** Menü → „App installieren“.
+
+## Plan anpassen
+
+Der Default-Plan steht in `src/data/plan.js`. Eigene Pläne werden pro Nutzer in
+`users.plan_data` gespeichert und können jederzeit über den Coach geändert werden.
+
+## Release Notes
+
+In `src/data/releaseNotes.js` – der neueste Eintrag wird auf dem Home-Screen angezeigt,
+bis der Nutzer ihn wegklickt.

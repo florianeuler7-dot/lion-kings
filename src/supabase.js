@@ -1,5 +1,7 @@
 import { createClient } from '@supabase/supabase-js';
+import { toLocalDateStr, todayStr } from './lib/date';
 
+// The anon key is public by design (Supabase) – data protection relies on RLS policies.
 const SUPABASE_URL = 'https://mmwrvpuwqumqvnymdtzc.supabase.co';
 const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im1td3J2cHV3cXVtcXZueW1kdHpjIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzcxMTUxMjYsImV4cCI6MjA5MjY5MTEyNn0.thsgc-resNiw14npwk4M12lxBlgmzYt01JHaafaysik';
 
@@ -108,8 +110,9 @@ export async function getUserWorkouts(userId) {
   return data || [];
 }
 
+// duration is always MINUTES
 export async function saveWorkout(userId, workout) {
-  const dateStr = new Date(workout.date).toISOString().split('T')[0];
+  const dateStr = toLocalDateStr(workout.date ? new Date(workout.date) : new Date());
   const { data, error } = await supabase
     .from('workouts')
     .insert({
@@ -118,7 +121,7 @@ export async function saveWorkout(userId, workout) {
       plan_key: workout.planKey,
       plan_name: workout.planName,
       logs: workout.logs || [],
-      duration: workout.duration || 0,
+      duration: Math.max(0, Math.round(Number(workout.duration) || 0)),
       is_cardio: !!workout.isCardio,
       is_mobility: !!workout.isMobility,
       focus: workout.focus || null,
@@ -307,13 +310,17 @@ export function computeUserStats(workouts, optionalDays = new Set()) {
   const thisWeek = workouts.filter(w => new Date(w.created_at || w.date).getTime() >= monday.getTime()).length;
 
   // Streak: consecutive REQUIRED days back from today
-  const dates = new Set(workouts.map(w => (w.date || w.dateOnly)));
+  // Rows carry a "YYYY-MM-DD" in `date` (DB) or `dateOnly` (app shape) – both are compared as local days.
+  const dates = new Set(workouts.map(w => {
+    const v = w.dateOnly || w.date;
+    return typeof v === 'string' && v.length === 10 ? v : toLocalDateStr(v);
+  }));
   let streak = 0;
   let cursor = new Date();
   cursor.setHours(0, 0, 0, 0);
   for (let i = 0; i < 365; i++) {
     const dow = cursor.getDay();
-    const ds = `${cursor.getFullYear()}-${String(cursor.getMonth()+1).padStart(2,'0')}-${String(cursor.getDate()).padStart(2,'0')}`;
+    const ds = toLocalDateStr(cursor);
     const isOptional = optionalDays.has(dow);
 
     if (isOptional) {
@@ -338,10 +345,6 @@ export function computeUserStats(workouts, optionalDays = new Set()) {
 }
 
 // ===== STEPS =====
-
-function todayStr() {
-  return new Date().toISOString().split('T')[0];
-}
 
 export async function getUserSteps(userId, date = null) {
   const d = date || todayStr();
@@ -423,24 +426,37 @@ export async function getActivePlanForUser(userId) {
 
 // ===== AI BACKEND CALLS =====
 
+// Netlify may answer with an HTML error page (502/504) – never assume JSON.
+async function callFunction(name, payload) {
+  let resp;
+  try {
+    resp = await fetch(`/.netlify/functions/${name}`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload),
+    });
+  } catch (e) {
+    throw new Error('Keine Verbindung – bist du online?');
+  }
+  const text = await resp.text();
+  let data = {};
+  try { data = text ? JSON.parse(text) : {}; } catch { data = {}; }
+  if (!resp.ok) {
+    throw new Error(data.error || (resp.status === 504 || resp.status === 502
+      ? 'Coach antwortet nicht – nochmal versuchen.'
+      : `Fehler ${resp.status}`));
+  }
+  return data;
+}
+
 export async function parsePlanText(text) {
-  const resp = await fetch('/.netlify/functions/parse-plan', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ text }),
-  });
-  const data = await resp.json();
-  if (!resp.ok) throw new Error(data.error || 'Parse failed');
+  const data = await callFunction('parse-plan', { text });
+  if (!data.plan) throw new Error('Plan konnte nicht verarbeitet werden');
   return data.plan;
 }
 
 export async function coachChat(messages, currentPlan = null, onboarding = false) {
-  const resp = await fetch('/.netlify/functions/coach-chat', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ messages, currentPlan, onboarding }),
-  });
-  const data = await resp.json();
-  if (!resp.ok) throw new Error(data.error || 'Coach chat failed');
-  return data; // { reply, plan }
+  // Only send what the API needs
+  const clean = messages.map(m => ({ role: m.role, content: String(m.content || '') }));
+  return callFunction('coach-chat', { messages: clean, currentPlan, onboarding }); // { reply, plan }
 }
