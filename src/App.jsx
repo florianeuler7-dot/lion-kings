@@ -1,6 +1,6 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { Calendar, History, Home, Sparkles, Users } from 'lucide-react';
-import { getUserById, getUserWorkouts, saveWorkout, rowToWorkout, computeLastWeights, setLiveStatus, clearLiveStatus, deleteWorkout, uploadAvatar, updateUserAvatar, saveUserPlan, getActivePlanForUser } from './supabase';
+import { getUserById, getUserWorkouts, saveWorkout, rowToWorkout, computeLastWeights, computeUserStats, setLiveStatus, clearLiveStatus, deleteWorkout, uploadAvatar, updateUserAvatar, saveUserPlan, getActivePlanForUser } from './supabase';
 import { buildPlanData, DAY_NAMES } from './data/plan';
 import { MOBILITY } from './data/mobility';
 import { session } from './lib/session';
@@ -397,7 +397,7 @@ function Shell() {
       <input ref={avatarInputRef} type="file" accept="image/*" onChange={onAvatarFileChosen} className="hidden" aria-hidden="true" tabIndex={-1} />
 
       {workoutComplete && (
-        <WorkoutCompleteModal data={workoutComplete} onClose={saveCompletedWorkout} />
+        <WorkoutCompleteModal data={workoutComplete} onClose={saveCompletedWorkout} history={history} streak={computeUserStats(history, optionalDays).streak} />
       )}
 
       {/* No z-index here on purpose: overlays inside (sheets, dialogs) must stack above the nav */}

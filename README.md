@@ -7,7 +7,9 @@ KI-Coach, der Trainingspläne erstellt und anpasst. Der „Winter Arc“ läuft 
 
 ## Was die App kann
 
-- Arc-Fortschritt (Tag X von 182) und Wochenziel-Ring auf dem Home-Screen
+- Arc-Fortschritt (Tag X von 156, Start 26.10.2026) und Wochenziel-Ring auf dem Home-Screen
+- XP, Level und Badges – komplett aus dem Verlauf berechnet, nichts Extra in der DB (`src/lib/xp.js`)
+- Abschluss-Animationen mit Konfetti (Canvas, kein Video, respektiert reduced-motion)
 - Erkennt den Wochentag und zeigt das passende Training (eigener oder Default-Plan)
 - Führt Übung für Übung durch, fragt nach jedem Satz Gewicht & Wiederholungen
 - Pausentimer als Fortschrittsring, Benachrichtigung bei erreichter Pause (auch bei gesperrtem Screen)
@@ -81,6 +83,11 @@ Datenschutz hängt an den Row-Level-Security-Policies in Supabase.
 **Supabase pausiert?** Kostenlose Projekte werden nach einer Woche ohne Nutzung angehalten.
 Die App zeigt dann auf dem Home-Screen ein rotes Banner. Im Supabase-Dashboard
 „Restore project“ klicken.
+
+### Nutzer löschen
+
+`supabase/delete-other-users.sql` löscht alle Nutzer außer einem (samt Workouts, Reaktionen,
+Kommentaren). Im Supabase SQL Editor ausführen, vorher den Namen anpassen.
 
 ### Benötigte Supabase-Tabellen
 
