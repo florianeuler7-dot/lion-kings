@@ -1,8 +1,11 @@
 import React, { useEffect, useState } from 'react';
-import { Check, ChevronRight, X, ArrowLeft } from 'lucide-react';
+import { Check, ChevronRight, X, ArrowLeft, PersonStanding, Hand, StretchVertical, MoveVertical, Activity, Brain } from 'lucide-react';
 import { MOBILITY } from '../data/mobility';
 import { setLiveStatus } from '../supabase';
 import { Button, ListRow, ProgressBar, IconButton } from '../components/ui';
+
+const ICONS = { PersonStanding, Hand, StretchVertical, MoveVertical, Activity, Brain };
+const iconFor = (name) => ICONS[name] || Activity;
 
 export default function MobilityScreen({ onFinish, onCancel, user, combinedFlow }) {
   const [focus, setFocus] = useState(combinedFlow ? 'fullbody' : null);
@@ -48,15 +51,16 @@ export default function MobilityScreen({ onFinish, onCancel, user, combinedFlow 
 
         <div className="mb-6">
           <div className="label mb-2">Fokus wählen</div>
-          <h2 className="font-display text-[2.75rem] text-zinc-50 leading-[0.95]">WAS<br /><span className="text-ok">MOBILISIEREN?</span></h2>
+          <h2 className="font-display text-[2.75rem] uppercase text-fg leading-[0.92]">Was<br /><span className="text-ok">mobilisieren?</span></h2>
         </div>
 
         <div className="space-y-2.5">
           {Object.entries(MOBILITY).map(([key, prog]) => (
             <ListRow
               key={key}
-              icon={prog.icon}
-              title={prog.name.toUpperCase()}
+              icon={iconFor(prog.icon)}
+              iconClass="text-ok"
+              title={prog.name}
               subtitle={`${prog.description} · ${prog.exercises.length} Übungen`}
               onClick={() => setFocus(key)}
             />
@@ -67,6 +71,7 @@ export default function MobilityScreen({ onFinish, onCancel, user, combinedFlow 
   }
 
   const program = MOBILITY[focus];
+  const ProgIcon = iconFor(program.icon);
   const completedCount = Object.values(done).filter(Boolean).length;
   const totalCount = program.exercises.length;
   const allDone = completedCount === totalCount;
@@ -75,17 +80,17 @@ export default function MobilityScreen({ onFinish, onCancel, user, combinedFlow 
     <div className="min-h-screen flex flex-col animate-fade-in">
       <div className="pt-2 pb-3 flex items-center justify-between">
         <IconButton icon={ArrowLeft} label="Fokus wechseln" onClick={() => { setFocus(null); setDone({}); setOpenIdx(0); }} />
-        <div className="text-xs font-semibold text-zinc-500 tabular">{completedCount} / {totalCount}</div>
+        <div className="text-xs font-bold text-fg-muted tabular">{completedCount} / {totalCount}</div>
         <IconButton icon={X} label="Abbrechen" onClick={onCancel} />
       </div>
 
-      <ProgressBar value={(completedCount / totalCount) * 100} color="bg-ok" className="mb-6" />
+      <ProgressBar value={(completedCount / totalCount) * 100} color="bg-ok" className="mb-6" label="Mobility Fortschritt" />
 
       <div className="mb-6">
         <div className="label text-ok mb-2 flex items-center gap-2">
-          <span>{program.icon}</span> Mobility
+          <ProgIcon className="w-4 h-4" aria-hidden="true" /> Mobility
         </div>
-        <h2 className="font-display text-[2.5rem] text-zinc-50 leading-[0.95]">{program.name.toUpperCase()}<br /><span className="text-ok">FLOW</span></h2>
+        <h2 className="font-display text-[2.5rem] uppercase text-fg leading-[0.92]">{program.name}<br /><span className="text-ok">Flow</span></h2>
       </div>
 
       <div className="space-y-2.5 mb-6">
@@ -93,33 +98,35 @@ export default function MobilityScreen({ onFinish, onCancel, user, combinedFlow 
           const isDone = !!done[idx];
           const isOpen = openIdx === idx;
           return (
-            <div key={idx} className={`rounded-card border overflow-hidden transition-colors ${isDone ? 'bg-ok/10 border-ok/30' : 'card'}`}>
-              <button onClick={() => setOpenIdx(isOpen ? -1 : idx)} className="w-full p-4 flex items-center gap-3 text-left">
-                <div onClick={(e) => { e.stopPropagation(); toggleDone(idx); }}
-                  className={`pressable shrink-0 w-8 h-8 rounded-full border-2 flex items-center justify-center cursor-pointer transition-colors ${isDone ? 'bg-ok border-ok' : 'border-zinc-600'}`}>
-                  {isDone && <Check className="w-4 h-4 text-zinc-950" strokeWidth={3} />}
-                </div>
-                <div className="flex-1 min-w-0">
-                  <div className={`font-display text-lg leading-tight ${isDone ? 'text-zinc-500 line-through' : 'text-zinc-50'}`}>
-                    {ex.name.toUpperCase()}
+            <div key={idx} className={`rounded-card border overflow-hidden transition-colors ${isDone ? 'bg-ok/10 border-ok/40' : 'card'}`}>
+              <div className="w-full p-3 flex items-center gap-3 text-left">
+                <button onClick={() => toggleDone(idx)} aria-pressed={isDone} aria-label={`${ex.name} ${isDone ? 'als offen markieren' : 'als erledigt markieren'}`}
+                  className={`pressable shrink-0 w-11 h-11 rounded-full border-2 flex items-center justify-center transition-colors ${isDone ? 'bg-ok border-ok' : 'border-line-2'}`}>
+                  {isDone && <Check className="w-5 h-5 text-on-ok" strokeWidth={3} aria-hidden="true" />}
+                </button>
+                <button onClick={() => setOpenIdx(isOpen ? -1 : idx)} aria-expanded={isOpen} className="flex-1 min-w-0 flex items-center gap-3 text-left min-h-[44px]">
+                  <div className="flex-1 min-w-0">
+                    <div className={`font-display text-xl uppercase leading-none ${isDone ? 'text-fg-muted line-through' : 'text-fg'}`}>
+                      {ex.name}
+                    </div>
+                    <div className="text-xs text-ok font-semibold mt-1">{ex.duration}</div>
                   </div>
-                  <div className="text-xs text-ok/80 font-medium">{ex.duration}</div>
-                </div>
-                <ChevronRight className={`w-5 h-5 text-zinc-600 transition-transform shrink-0 ${isOpen ? 'rotate-90' : ''}`} />
-              </button>
+                  <ChevronRight className={`w-5 h-5 text-fg-faint transition-transform shrink-0 ${isOpen ? 'rotate-90' : ''}`} aria-hidden="true" />
+                </button>
+              </div>
               {isOpen && (
                 <div className="px-4 pb-4 pt-1 border-t border-line">
                   <div className="label mb-2 mt-3">Anleitung</div>
                   <ol className="space-y-2">
                     {ex.steps.map((step, i) => (
-                      <li key={i} className="flex gap-3 text-sm text-zinc-300 leading-relaxed">
+                      <li key={i} className="flex gap-3 text-sm text-fg leading-relaxed">
                         <span className="font-mono text-ok shrink-0 mt-0.5">{i + 1}.</span>
                         <span>{step}</span>
                       </li>
                     ))}
                   </ol>
                   {!isDone && (
-                    <Button variant="ok" size="md" className="mt-4 w-full" icon={Check} onClick={() => toggleDone(idx)}>
+                    <Button variant="cta" size="md" className="mt-4 w-full" icon={Check} onClick={() => toggleDone(idx)}>
                       Als erledigt markieren
                     </Button>
                   )}
@@ -130,11 +137,11 @@ export default function MobilityScreen({ onFinish, onCancel, user, combinedFlow 
         })}
       </div>
 
-      <Button variant={allDone ? 'ok' : 'secondary'} className="w-full" onClick={handleFinish} icon={Check} disabled={finishing}>
-        {allDone ? 'KOMPLETT FERTIG' : `BEENDEN (${completedCount}/${totalCount})`}
+      <Button variant={allDone ? 'cta' : 'secondary'} className="w-full" onClick={handleFinish} icon={Check} disabled={finishing}>
+        {allDone ? 'Komplett fertig' : `Beenden (${completedCount}/${totalCount})`}
       </Button>
 
-      <div className="mt-4 mb-2 text-zinc-500 text-xs text-center">
+      <div className="mt-4 mb-2 text-fg-faint text-xs text-center">
         Mobility ist kein Sprint – atme tief und nimm dir Zeit.
       </div>
     </div>

@@ -96,19 +96,19 @@ export default function CardioScreen({ onFinish, onCancel, showToast, user, comb
       {!started && (
         <div className="flex-1 flex flex-col">
           <div className="label mb-2">Vorbereitung</div>
-          <h2 className="font-display text-[2.75rem] text-zinc-50 leading-[0.95] mb-7">CARDIO<br /><span className="text-accent">SETUP</span></h2>
+          <h2 className="font-display text-[2.75rem] uppercase text-fg leading-[0.92] mb-7">Cardio<br /><span className="text-accent">Setup</span></h2>
 
           <Card className="p-5 mb-3">
             <SectionLabel>Typ</SectionLabel>
             <div className="grid grid-cols-2 gap-2">
               {[
-                { v: 'zone2', Icon: Heart, title: 'ZONE 2', sub: 'locker, 30–40 Min', def: 35 },
+                { v: 'zone2', Icon: Heart, title: 'Zone 2', sub: 'locker, 30–40 Min', def: 35 },
                 { v: 'hiit', Icon: Flame, title: 'HIIT', sub: 'intensiv, 10–15 Min', def: 15 },
               ].map(({ v, Icon, title, sub, def }) => (
-                <button key={v} onClick={() => { setType(v); setTargetMin(def); }}
-                  className={`pressable p-4 rounded-2xl border text-center transition-colors ${type === v ? 'bg-accent border-accent text-white shadow-glow' : 'bg-white/[0.03] border-line text-zinc-400'}`}>
-                  <Icon className="w-5 h-5 mx-auto mb-2" />
-                  <div className="font-display text-lg">{title}</div>
+                <button key={v} onClick={() => { setType(v); setTargetMin(def); }} aria-pressed={type === v}
+                  className={`pressable p-4 rounded-2xl border text-center transition-colors min-h-[96px] ${type === v ? 'bg-accent border-accent text-on-accent shadow-glow' : 'bg-surface-2/60 border-line text-fg-muted'}`}>
+                  <Icon className="w-5 h-5 mx-auto mb-2" aria-hidden="true" />
+                  <div className="font-display text-2xl uppercase leading-none mb-1">{title}</div>
                   <div className="text-xs opacity-75">{sub}</div>
                 </button>
               ))}
@@ -119,17 +119,17 @@ export default function CardioScreen({ onFinish, onCancel, showToast, user, comb
             <SectionLabel>Ziel-Dauer</SectionLabel>
             <div className="flex gap-2">
               {(type === 'zone2' ? [30, 35, 40, 45] : [10, 15, 20]).map(m => (
-                <button key={m} onClick={() => setTargetMin(m)}
-                  className={`pressable flex-1 py-3 rounded-xl border font-display text-xl transition-colors ${targetMin === m ? 'bg-zinc-100 border-zinc-100 text-zinc-950' : 'bg-white/[0.03] border-line text-zinc-400'}`}>
+                <button key={m} onClick={() => setTargetMin(m)} aria-pressed={targetMin === m}
+                  className={`pressable flex-1 min-h-[52px] rounded-xl border font-display text-2xl transition-colors ${targetMin === m ? 'bg-fg border-fg text-on-accent' : 'bg-surface-2/60 border-line text-fg-muted'}`}>
                   {m}<span className="text-xs ml-1 opacity-75 font-body font-semibold">min</span>
                 </button>
               ))}
             </div>
           </Card>
 
-          <Button size="xl" className="w-full" onClick={start} icon={Play}>LOS GEHT'S</Button>
+          <Button variant="cta" size="xl" className="w-full" onClick={start} icon={Play}>Los geht's</Button>
 
-          <div className="mt-6 text-zinc-500 text-sm text-center">
+          <div className="mt-6 text-fg-muted text-sm text-center">
             {type === 'zone2'
               ? 'Tempo so, dass du noch reden könntest. HF ~120–140.'
               : '30 Sek volle Power / 60 Sek Pause × Runden.'}
@@ -141,15 +141,15 @@ export default function CardioScreen({ onFinish, onCancel, showToast, user, comb
         <div className="flex-1 flex flex-col items-center justify-center pb-10">
           <div className="label mb-6">{typeName} · Ziel {targetMin} Min</div>
 
-          <ProgressRing value={progress} size={270} stroke={12} color={reachedTarget ? '#22c55e' : '#ef4444'}>
-            <div className="font-display text-7xl text-zinc-50 leading-none tabular">{fmt(elapsed)}</div>
-            <div className={`text-xs mt-2 font-semibold ${reachedTarget ? 'text-ok' : 'text-zinc-500'}`}>
+          <ProgressRing value={progress} size={270} stroke={12} color={reachedTarget ? '#22c55e' : '#f97316'} label="Cardio Fortschritt">
+            <div className="font-display text-7xl text-fg leading-none tabular">{fmt(elapsed)}</div>
+            <div className={`text-xs mt-2 font-semibold ${reachedTarget ? 'text-ok' : 'text-fg-muted'}`}>
               {reachedTarget ? 'Ziel erreicht ✓' : running ? 'läuft' : 'pausiert'}
             </div>
           </ProgressRing>
 
           <div className="h-8 mt-4 text-sm text-ok flex items-center gap-2">
-            {reachedTarget && <><Check className="w-4 h-4" /> Weitermachen oder beenden</>}
+            {reachedTarget && <><Check className="w-4 h-4" aria-hidden="true" /> Weitermachen oder beenden</>}
           </div>
 
           <div className="flex gap-3 mt-6 mb-6 w-full max-w-xs">
@@ -158,16 +158,16 @@ export default function CardioScreen({ onFinish, onCancel, showToast, user, comb
             ) : (
               <Button variant="secondary" size="md" className="flex-1" onClick={resume} icon={Play}>Weiter</Button>
             )}
-            <Button size="md" className="flex-1" onClick={handleFinish} icon={Check} disabled={finishing}>
-              {combinedFlow ? 'MOBILITY' : 'FERTIG'}
+            <Button variant="cta" size="md" className="flex-1" onClick={handleFinish} icon={Check} disabled={finishing}>
+              {combinedFlow ? 'Mobility' : 'Fertig'}
             </Button>
           </div>
 
-          <div className="text-zinc-500 text-xs flex items-center gap-2">
-            <Droplet className="w-4 h-4" /> Trink-Erinnerung alle 10 Min
+          <div className="text-fg-muted text-xs flex items-center gap-2">
+            <Droplet className="w-4 h-4" aria-hidden="true" /> Trink-Erinnerung alle 10 Min
           </div>
           {combinedFlow && (
-            <div className="text-zinc-500 text-xs mt-2">Als Nächstes: Mobility – Ganzkörper</div>
+            <div className="text-fg-muted text-xs mt-2">Als Nächstes: Mobility – Ganzkörper</div>
           )}
         </div>
       )}

@@ -5,6 +5,7 @@ import { buildPlanData, DAY_NAMES } from './data/plan';
 import { MOBILITY } from './data/mobility';
 import { session } from './lib/session';
 import { ToastProvider, useToast } from './components/Toast';
+import { Wordmark } from './components/ui';
 import HomeScreen, { CustomWorkoutModal } from './screens/HomeScreen';
 import WorkoutScreen from './screens/WorkoutScreen';
 import HistoryScreen from './screens/HistoryScreen';
@@ -45,7 +46,7 @@ function Splash({ fading }) {
   return (
     <div className="fixed inset-0 z-[200] bg-ink flex items-center justify-center pointer-events-none"
       style={{ opacity: fading ? 0 : 1, transition: 'opacity 0.65s ease' }}>
-      <div className="font-display text-4xl text-zinc-50 leading-none text-center">NO<br /><span className="text-accent">EXCUSES</span></div>
+      <Wordmark size="md" className="text-center" />
     </div>
   );
 }
@@ -171,12 +172,11 @@ function Shell() {
     try {
       await saveUserPlan(user.id, newPlan);
       setPlanConfig(buildPlanData(newPlan));
-      showToast('Neuer Plan aktiv 🔥', 'check');
+      showToast('Neuer Plan aktiv', 'check');
       setScreen('plan');
     } catch (e) {
-      const msg = e?.message || e?.details || e?.code || String(e);
       console.error('Plan save error:', e);
-      showToast(`Plan konnte nicht gespeichert werden: ${msg}`, 'error');
+      showToast(`Plan konnte nicht gespeichert werden: ${describeError(e)}`, 'error', 8000);
       throw e;
     }
   };
@@ -189,7 +189,7 @@ function Shell() {
       return newRow;
     } catch (e) {
       console.error('Save error:', e);
-      showToast('Speichern fehlgeschlagen – bist du online?', 'error');
+      showToast(`Speichern fehlgeschlagen: ${describeError(e)}`, 'error', 8000);
       throw e;
     }
   };
@@ -207,7 +207,7 @@ function Shell() {
         notes: '',
         skippedExercises: [],
       });
-      showToast(`${workoutName} eingetragen ✓`, 'check');
+      showToast(`${workoutName} eingetragen`, 'check');
       setShowCustomModal(false);
     } catch (e) {}
   };
@@ -223,7 +223,7 @@ function Shell() {
       showToast('Workout gelöscht', 'info');
     } catch (e) {
       console.error('Delete error:', e);
-      showToast('Löschen fehlgeschlagen', 'error');
+      showToast(`Löschen fehlgeschlagen: ${describeError(e)}`, 'error');
     }
   };
 
@@ -262,7 +262,7 @@ function Shell() {
           isCardio: true,
         });
         setScreen('home');
-        showToast('Cardio abgeschlossen 🔥', 'check');
+        showToast('Cardio abgeschlossen', 'check');
       }
     } catch (e) {}
   };
@@ -287,7 +287,7 @@ function Shell() {
         pendingCombinedCardioRef.current = null;
         setCombinedFlow(false);
         setScreen('home');
-        showToast('Training komplett 🔥', 'check');
+        showToast('Training komplett', 'check');
       } else {
         await persistWorkout({
           date: new Date().toISOString(),
@@ -391,23 +391,24 @@ function Shell() {
   const fullscreen = screen === 'workout' || screen === 'cardio' || screen === 'mobility';
 
   return (
-    <div className="min-h-screen bg-ink text-zinc-100 app-bg relative safe-top">
+    <div className="min-h-screen bg-ink text-fg app-bg relative safe-top">
       {splashVisible && <Splash fading={splashFading} />}
 
-      <input ref={avatarInputRef} type="file" accept="image/*" onChange={onAvatarFileChosen} className="hidden" />
+      <input ref={avatarInputRef} type="file" accept="image/*" onChange={onAvatarFileChosen} className="hidden" aria-hidden="true" tabIndex={-1} />
 
       {workoutComplete && (
         <WorkoutCompleteModal data={workoutComplete} onClose={saveCompletedWorkout} />
       )}
 
       {/* No z-index here on purpose: overlays inside (sheets, dialogs) must stack above the nav */}
-      <div className={`max-w-2xl mx-auto px-4 ${fullscreen ? 'pb-8' : 'pb-28'}`}>
+      <main className={`max-w-2xl mx-auto px-4 ${fullscreen ? 'pb-8' : 'pb-28'}`}>
         {screen === 'home' && (
           <HomeScreen
             user={user}
             onLogout={handleLogout}
             onChangeAvatar={triggerAvatarChange}
             plan={PLAN}
+            schedule={DAY_MAP}
             todayPlan={todayPlan} todayKey={todayKey}
             todayName={DAY_NAMES[today.getDay()]}
             history={history}
@@ -441,10 +442,10 @@ function Shell() {
         {screen === 'coach' && <CoachScreen user={user} currentPlan={PLAN} currentSchedule={DAY_MAP} onPlanSaved={handlePlanSaved} showToast={showToast} />}
         {screen === 'cardio' && <CardioScreen onFinish={finishCardio} onCancel={cancelActivity} showToast={showToast} user={user} combinedFlow={combinedFlow} />}
         {screen === 'mobility' && <MobilityScreen onFinish={finishMobility} onCancel={cancelActivity} user={user} combinedFlow={combinedFlow} />}
-      </div>
+      </main>
 
       {!fullscreen && (
-        <nav className="app-nav glass">
+        <nav className="app-nav glass" aria-label="Hauptnavigation">
           <div className="app-nav-inner max-w-2xl mx-auto w-full">
             <NavBtn icon={Home} label="Home" active={screen === 'home'} onClick={() => setScreen('home')} />
             <NavBtn icon={Users} label="Crew" active={screen === 'dashboard'} onClick={() => setScreen('dashboard')} />
@@ -463,12 +464,12 @@ function NavBtn({ icon: Icon, label, active, onClick }) {
     <button
       onClick={onClick}
       aria-current={active ? 'page' : undefined}
-      className={`flex-1 flex flex-col items-center justify-center gap-1 transition-colors ${active ? 'text-accent' : 'text-zinc-500 hover:text-zinc-300'}`}
+      className={`flex-1 flex flex-col items-center justify-center gap-1 transition-colors ${active ? 'text-accent' : 'text-fg-muted hover:text-fg'}`}
     >
-      <div className={`relative flex items-center justify-center w-12 h-7 rounded-full transition-colors ${active ? 'bg-accent/15' : ''}`}>
-        <Icon className="w-[22px] h-[22px]" strokeWidth={active ? 2.4 : 2} />
+      <div className={`relative flex items-center justify-center w-14 h-8 rounded-full transition-colors ${active ? 'bg-accent/15' : ''}`} aria-hidden="true">
+        <Icon className="w-[22px] h-[22px]" strokeWidth={active ? 2.5 : 2} />
       </div>
-      <span className="text-[10px] font-semibold tracking-wide leading-none">{label}</span>
+      <span className="text-[11px] font-bold tracking-wide leading-none">{label}</span>
     </button>
   );
 }

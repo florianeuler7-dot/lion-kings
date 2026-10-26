@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { Check, Camera, User, X, Dumbbell, StickyNote, Sparkles } from 'lucide-react';
 import Avatar from '../components/Avatar';
-import { Button, ListRow, ErrorText, Card } from '../components/ui';
+import { Button, ListRow, ErrorText, Card, Wordmark } from '../components/ui';
 import { findUserByName, getLastWorkoutDate, createUser, uploadAvatar, updateUserAvatar, saveUserPlan, parsePlanText, coachChat } from '../supabase';
 import { readJSON, writeJSON, removeKey } from '../lib/session';
 import { ChatThread, ChatInput, PlanReview } from './CoachScreen';
@@ -60,7 +60,7 @@ export default function OnboardingScreen({ onComplete }) {
       }
     } catch (e) {
       console.error(e);
-      setError('Verbindung fehlgeschlagen – nochmal versuchen.');
+      setError('Verbindung zur Datenbank fehlgeschlagen – nochmal versuchen.');
     }
     setBusy(false);
   };
@@ -162,7 +162,7 @@ export default function OnboardingScreen({ onComplete }) {
     if (step === 'plan-coach' && coachMessages.length === 0) {
       setCoachMessages([{
         role: 'assistant',
-        content: `Hi ${name}! Ich erstelle dir gerade deinen Trainingsplan. Sag mir kurz:\n\n1. Wie oft pro Woche willst du trainieren?\n2. Was ist dein Ziel? (Cut, Muskelaufbau, Maintainen, Athletik...)\n3. Wie viel Erfahrung hast du im Krafttraining?`,
+        content: `Hi ${name}! Ich erstelle dir gerade deinen Trainingsplan für den Winter Arc. Sag mir kurz:\n\n1. Wie oft pro Woche willst du trainieren?\n2. Was ist dein Ziel? (Cut, Muskelaufbau, Maintainen, Athletik...)\n3. Wie viel Erfahrung hast du im Krafttraining?`,
       }]);
     }
   }, [step]);
@@ -177,21 +177,21 @@ export default function OnboardingScreen({ onComplete }) {
 
   if (step === 'plan-coach') {
     return (
-      <div className="fixed inset-0 flex flex-col bg-ink text-zinc-100 app-bg">
+      <div className="fixed inset-0 flex flex-col bg-ink text-fg app-bg">
         <div className="flex-1 max-w-md mx-auto w-full px-5 flex flex-col overflow-hidden safe-top safe-bottom">
           <div className="pt-5 pb-3 flex items-end justify-between shrink-0">
             <div>
               <div className="label mb-1">Coach</div>
-              <div className="font-display text-3xl leading-none text-zinc-50">PLAN ERSTELLEN</div>
+              <div className="font-display text-3xl uppercase leading-none text-fg">Plan erstellen</div>
             </div>
-            <button onClick={() => setStep('plan')} className="text-zinc-400 hover:text-zinc-200 text-xs font-semibold px-3 py-2">zurück</button>
+            <button onClick={() => setStep('plan')} className="text-fg-muted hover:text-fg text-sm font-bold px-3 py-2 min-h-[44px]">zurück</button>
           </div>
           <ChatThread messages={coachMessages} busy={busy} className="flex-1 card-soft p-3 mb-3 min-h-0" />
           {parsedPlan && (
-            <div className="bg-ok/10 border border-ok/30 rounded-2xl p-3 mb-3 flex items-center gap-3 animate-fade-up">
-              <Check className="w-5 h-5 text-ok shrink-0" />
-              <div className="flex-1 text-sm text-emerald-100">Plan ist fertig!</div>
-              <Button variant="ok" size="sm" onClick={() => setStep('plan-review')}>ANSEHEN</Button>
+            <div className="bg-ok/10 border border-ok/40 rounded-2xl p-3 mb-3 flex items-center gap-3 animate-fade-up">
+              <Check className="w-5 h-5 text-ok shrink-0" aria-hidden="true" />
+              <div className="flex-1 text-sm text-fg">Plan ist fertig!</div>
+              <Button variant="cta" size="sm" onClick={() => setStep('plan-review')}>Ansehen</Button>
             </div>
           )}
           <ChatInput value={coachInput} onChange={setCoachInput} onSend={handleCoachSend} busy={busy} placeholder="Antwort… (Shift+Enter = Absatz)" />
@@ -202,18 +202,19 @@ export default function OnboardingScreen({ onComplete }) {
   }
 
   return (
-    <div className="min-h-screen bg-ink text-zinc-100 app-bg relative safe-top safe-bottom flex flex-col">
+    <div className="min-h-screen bg-ink text-fg app-bg relative safe-top safe-bottom flex flex-col">
       <div className="flex-1 max-w-md mx-auto w-full px-6 flex flex-col justify-center py-10">
         <div className="mb-10 animate-fade-up">
-          <div className="label mb-2">Willkommen bei</div>
-          <h1 className="font-display text-[4rem] text-zinc-50 leading-[0.9] tracking-tight">NO<br /><span className="text-accent">EXCUSES</span></h1>
+          <div className="label mb-3">Willkommen beim</div>
+          <Wordmark size="xl" />
         </div>
 
         {step === 'name' && (
           <div className="animate-fade-up">
             <div className="mb-6">
-              <label className="label mb-3 block">Wie heißt du?</label>
+              <label htmlFor="onb-name" className="label mb-3 block">Wie heißt du?</label>
               <input
+                id="onb-name"
                 type="text"
                 value={name}
                 onChange={e => setName(e.target.value)}
@@ -222,14 +223,14 @@ export default function OnboardingScreen({ onComplete }) {
                 autoFocus
                 disabled={busy}
                 autoComplete="given-name"
-                className="input-field px-5 py-4 text-2xl font-display"
+                className="input-field px-5 py-4 text-3xl font-display uppercase"
               />
               <ErrorText className="mt-3">{error}</ErrorText>
             </div>
             <Button size="xl" className="w-full" onClick={handleNameSubmit} disabled={busy || name.trim().length < 2}>
-              {busy ? 'MOMENT…' : 'WEITER'}
+              {busy ? 'Moment…' : 'Weiter'}
             </Button>
-            <div className="mt-8 text-zinc-500 text-xs text-center leading-relaxed">
+            <div className="mt-8 text-fg-muted text-sm text-center leading-relaxed">
               Dein Name wird auf diesem Gerät gespeichert.<br />
               Deine Crew sieht deine Trainings im Dashboard.
             </div>
@@ -240,8 +241,8 @@ export default function OnboardingScreen({ onComplete }) {
           <div className="animate-fade-up">
             <div className="mb-6">
               <div className="label mb-2">Hi, {name}</div>
-              <div className="font-display text-3xl text-zinc-50 leading-tight mb-1">PROFILBILD</div>
-              <div className="text-sm text-zinc-400">Optional – kannst du später auch hinzufügen.</div>
+              <div className="font-display text-4xl uppercase text-fg leading-none mb-2">Profilbild</div>
+              <div className="text-sm text-fg-muted">Optional – kannst du später auch hinzufügen.</div>
             </div>
 
             <div className="flex flex-col items-center mb-6">
@@ -249,19 +250,19 @@ export default function OnboardingScreen({ onComplete }) {
                 <div className="relative mb-5">
                   <img src={avatarPreview} alt="Vorschau" className="w-32 h-32 rounded-full object-cover ring-4 ring-accent ring-offset-4 ring-offset-ink" />
                   <button onClick={removeAvatar} aria-label="Bild entfernen"
-                    className="absolute -top-1 -right-1 bg-surface-2 border border-line-2 rounded-full p-2">
-                    <X className="w-4 h-4 text-zinc-300" />
+                    className="absolute -top-1 -right-1 bg-surface-2 border border-line-2 rounded-full w-11 h-11 flex items-center justify-center">
+                    <X className="w-4 h-4 text-fg" aria-hidden="true" />
                   </button>
                 </div>
               ) : (
-                <div className="w-32 h-32 rounded-full bg-white/[0.03] border-2 border-dashed border-line-2 flex items-center justify-center mb-5">
-                  <User className="w-12 h-12 text-zinc-700" />
+                <div className="w-32 h-32 rounded-full bg-surface-2/60 border-2 border-dashed border-line-2 flex items-center justify-center mb-5" aria-hidden="true">
+                  <User className="w-12 h-12 text-fg-faint" />
                 </div>
               )}
 
-              <label className="pressable cursor-pointer w-full btn-secondary py-3.5 px-4 flex items-center justify-center gap-2">
-                <Camera className="w-5 h-5 text-zinc-300" />
-                <span className="text-sm font-semibold text-zinc-200">{avatarPreview ? 'Anderes Foto wählen' : 'Foto wählen'}</span>
+              <label className="pressable cursor-pointer w-full btn-secondary min-h-[48px] py-3 px-4 flex items-center justify-center gap-2">
+                <Camera className="w-5 h-5 text-fg" aria-hidden="true" />
+                <span className="text-sm font-bold text-fg">{avatarPreview ? 'Anderes Foto wählen' : 'Foto wählen'}</span>
                 <input type="file" accept="image/*" onChange={handleAvatarPick} className="hidden" />
               </label>
             </div>
@@ -269,7 +270,7 @@ export default function OnboardingScreen({ onComplete }) {
             <ErrorText className="mb-3">{error}</ErrorText>
 
             <Button size="xl" className="w-full mb-2" onClick={() => setStep('plan')} disabled={busy}>
-              {avatarPreview ? 'WEITER' : 'OHNE BILD WEITER'}
+              {avatarPreview ? 'Weiter' : 'Ohne Bild weiter'}
             </Button>
             {avatarPreview && (
               <Button variant="ghost" size="md" className="w-full" onClick={() => { removeAvatar(); setStep('plan'); }} disabled={busy}>
@@ -283,20 +284,20 @@ export default function OnboardingScreen({ onComplete }) {
           <div className="animate-fade-up">
             <div className="mb-6">
               <div className="label mb-2">Hi, {name}</div>
-              <div className="font-display text-3xl text-zinc-50 leading-tight mb-1">DEIN TRAININGSPLAN</div>
-              <div className="text-sm text-zinc-400">Wähle wie du loslegen willst.</div>
+              <div className="font-display text-4xl uppercase text-fg leading-none mb-2">Dein Trainingsplan</div>
+              <div className="text-sm text-fg-muted">Wähle, wie du loslegen willst.</div>
             </div>
 
             <div className="space-y-2.5">
-              <ListRow icon={Dumbbell} title="DEFAULT-PLAN" subtitle="Bewährter 5-Tage-Split mit Cardio" onClick={() => !busy && finishCreation(null)} />
-              <ListRow icon={StickyNote} iconClass="text-sky-400" title="EIGENEN PLAN EINGEBEN" subtitle="Freitext einfügen, Coach strukturiert automatisch" onClick={() => !busy && setStep('plan-text')} />
-              <ListRow icon={Sparkles} iconClass="text-ok" title="VOM COACH ERSTELLEN" subtitle="Geführter Chat mit dem Coach" onClick={() => !busy && setStep('plan-coach')} />
+              <ListRow icon={Dumbbell} title="Default-Plan" subtitle="Bewährter 5-Tage-Split mit Cardio" onClick={() => !busy && finishCreation(null)} />
+              <ListRow icon={StickyNote} iconClass="text-ice" title="Eigenen Plan eingeben" subtitle="Freitext einfügen, Coach strukturiert automatisch" onClick={() => !busy && setStep('plan-text')} />
+              <ListRow icon={Sparkles} iconClass="text-ok" title="Vom Coach erstellen" subtitle="Geführter Chat mit dem Coach" onClick={() => !busy && setStep('plan-coach')} />
             </div>
 
-            {busy && <div className="mt-4 text-xs text-zinc-500 text-center">Konto wird erstellt…</div>}
+            {busy && <div className="mt-4 text-xs text-fg-muted text-center" role="status">Konto wird erstellt…</div>}
             <ErrorText className="mt-4">{error}</ErrorText>
 
-            <div className="mt-6 text-zinc-500 text-xs text-center">Du kannst den Plan später jederzeit ändern.</div>
+            <div className="mt-6 text-fg-faint text-xs text-center">Du kannst den Plan später jederzeit ändern.</div>
           </div>
         )}
 
@@ -304,13 +305,15 @@ export default function OnboardingScreen({ onComplete }) {
           <div className="animate-fade-up">
             <div className="mb-5">
               <div className="label mb-2">Plan einfügen</div>
-              <div className="font-display text-3xl text-zinc-50 leading-tight mb-1">DEIN PLAN ALS TEXT</div>
-              <div className="text-sm text-zinc-400">
+              <div className="font-display text-4xl uppercase text-fg leading-none mb-2">Dein Plan als Text</div>
+              <div className="text-sm text-fg-muted">
                 Füge deinen Plan als Freitext ein – Übungen, Sätze, Wiederholungen. Der Coach strukturiert ihn automatisch.
               </div>
             </div>
 
+            <label htmlFor="onb-plan-text" className="sr-only">Plan als Text</label>
             <textarea
+              id="onb-plan-text"
               value={planText}
               onChange={e => setPlanText(e.target.value)}
               placeholder={`z.B.\n\nMo: Push\nBankdrücken 4x6-8\nSchulterdrücken 3x8\nTrizeps Pushdown 3x12\n\nDi: Pull\n...`}
@@ -323,7 +326,7 @@ export default function OnboardingScreen({ onComplete }) {
             <ErrorText className="mb-3">{error}</ErrorText>
 
             <Button className="w-full mb-2" onClick={submitPlanText} disabled={busy || planText.trim().length < 30}>
-              {busy ? 'COACH LIEST…' : 'PLAN VERARBEITEN'}
+              {busy ? 'Coach liest…' : 'Plan verarbeiten'}
             </Button>
             <Button variant="ghost" size="md" className="w-full" onClick={() => setStep('plan')} disabled={busy}>zurück</Button>
           </div>
@@ -342,18 +345,18 @@ export default function OnboardingScreen({ onComplete }) {
               <div className="flex items-start gap-3 mb-3">
                 <Avatar user={foundUser} size="lg" />
                 <div className="flex-1 min-w-0">
-                  <div className="font-display text-xl text-zinc-50 leading-tight">{foundUser.name.toUpperCase()} EXISTIERT BEREITS</div>
-                  <div className="text-xs text-zinc-500 mt-1">
+                  <div className="font-display text-2xl uppercase text-fg leading-none">{foundUser.name} existiert bereits</div>
+                  <div className="text-xs text-fg-muted mt-1.5">
                     {lastWorkout
                       ? `Letztes Workout: ${new Date(lastWorkout).toLocaleDateString('de-DE')}`
                       : 'Noch kein Workout absolviert'}
                   </div>
                 </div>
               </div>
-              <div className="text-sm text-zinc-300">Bist du diese Person?</div>
+              <div className="text-sm text-fg">Bist du diese Person?</div>
             </Card>
 
-            <Button className="w-full mb-3" onClick={confirmExisting} icon={Check}>JA, DAS BIN ICH</Button>
+            <Button variant="cta" className="w-full mb-3" onClick={confirmExisting} icon={Check}>Ja, das bin ich</Button>
             <Button variant="secondary" size="md" className="w-full" onClick={reject}>Nein, anderen Namen wählen</Button>
           </div>
         )}

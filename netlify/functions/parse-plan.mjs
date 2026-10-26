@@ -3,7 +3,7 @@
 
 const MODEL = 'claude-sonnet-5-5';
 
-const SYSTEM_PROMPT = `Du bist ein Trainings-Plan-Parser für die App "NO EXCUSES".
+const SYSTEM_PROMPT = `Du bist ein Trainings-Plan-Parser für die App "WinterArc 26/27".
 
 Du bekommst einen Trainingsplan als Freitext und musst ihn in EXAKT dieses JSON-Format umwandeln:
 

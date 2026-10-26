@@ -1,15 +1,36 @@
 import React from 'react';
-import { ChevronRight } from 'lucide-react';
+import { ChevronRight, AlertCircle, Trophy } from 'lucide-react';
+import { ARC } from '../data/arc';
+
+// ── Brand ────────────────────────────────────────────────────────────────────
+// "WINTER ARC" wordmark with the season tag. sizes: sm | md | lg | xl
+export function Wordmark({ size = 'lg', stacked = true, className = '' }) {
+  const sizes = {
+    sm: { text: 'text-2xl', tag: 'text-[9px] px-1.5 py-0.5' },
+    md: { text: 'text-4xl', tag: 'text-[10px] px-2 py-0.5' },
+    lg: { text: 'text-[3.75rem]', tag: 'text-xs px-2 py-0.5' },
+    xl: { text: 'text-[4.5rem]', tag: 'text-xs px-2.5 py-1' },
+  };
+  const s = sizes[size] || sizes.lg;
+  return (
+    <div className={`font-display leading-[0.86] tracking-tight uppercase ${s.text} ${className}`}>
+      <span className="text-fg">{ARC.name.replace('Arc', '')}</span>
+      {stacked ? <br /> : ' '}
+      <span className="text-accent">Arc</span>
+      <span className={`inline-block align-top ml-2 mt-1 font-body font-bold tracking-widest rounded-md bg-ice/15 text-ice border border-ice/30 ${s.tag}`}>
+        {ARC.season}
+      </span>
+    </div>
+  );
+}
 
 // ── Layout primitives ────────────────────────────────────────────────────────
-
-// Screen header: small label + big display title
 export function ScreenHeader({ eyebrow, title, accent, right, className = '' }) {
   return (
     <div className={`mb-6 flex items-end justify-between gap-4 ${className}`}>
       <div className="min-w-0">
         {eyebrow && <div className="label mb-1.5">{eyebrow}</div>}
-        <h1 className="font-display text-[2.75rem] leading-[0.95] text-zinc-50">
+        <h1 className="font-display text-[2.75rem] leading-[0.92] text-fg uppercase tracking-tight">
           {title}
           {accent && <><br /><span className="text-accent">{accent}</span></>}
         </h1>
@@ -19,8 +40,13 @@ export function ScreenHeader({ eyebrow, title, accent, right, className = '' }) 
   );
 }
 
-export function SectionLabel({ children, className = '' }) {
-  return <div className={`label mb-3 ${className}`}>{children}</div>;
+export function SectionLabel({ children, className = '', right }) {
+  return (
+    <div className={`flex items-center justify-between mb-3 ${className}`}>
+      <div className="label">{children}</div>
+      {right}
+    </div>
+  );
 }
 
 export function Card({ children, className = '', soft = false, ...rest }) {
@@ -31,30 +57,43 @@ export function Card({ children, className = '', soft = false, ...rest }) {
   );
 }
 
+// Square icon container used in rows and tiles
+export function IconTile({ icon: Icon, className = '', iconClass = 'text-accent', size = 'md' }) {
+  const box = size === 'lg' ? 'w-14 h-14 rounded-2xl' : size === 'sm' ? 'w-9 h-9 rounded-xl' : 'w-11 h-11 rounded-2xl';
+  const ico = size === 'lg' ? 'w-6 h-6' : size === 'sm' ? 'w-4 h-4' : 'w-5 h-5';
+  return (
+    <div className={`${box} bg-surface-2 border border-line flex items-center justify-center shrink-0 ${className}`} aria-hidden="true">
+      <Icon className={`${ico} ${iconClass}`} strokeWidth={2.2} />
+    </div>
+  );
+}
+
 // ── Buttons ──────────────────────────────────────────────────────────────────
 const VARIANTS = {
   primary: 'btn-primary',
+  cta: 'btn-cta',
+  ok: 'btn-cta',
   gold: 'btn-gold',
+  dark: 'btn-dark',
   secondary: 'btn-secondary',
   ghost: 'btn-ghost',
-  ok: 'bg-ok text-zinc-950 rounded-2xl shadow-[0_10px_40px_-10px_rgba(34,197,94,0.5)]',
-  danger: 'bg-accent text-white rounded-2xl',
-  warn: 'bg-accent-2 text-white rounded-2xl',
+  danger: 'bg-danger text-white rounded-2xl hover:bg-red-400',
+  warn: 'bg-accent text-on-accent rounded-2xl',
 };
 
 export function Button({ variant = 'primary', size = 'lg', className = '', children, icon: Icon, ...rest }) {
   const sizes = {
-    sm: 'px-3 py-2 text-xs font-semibold',
-    md: 'px-4 py-3 text-sm font-semibold',
-    lg: 'px-5 py-4 font-display text-xl tracking-wide',
-    xl: 'px-6 py-5 font-display text-2xl tracking-wide',
+    sm: 'min-h-[40px] px-3.5 py-2 text-xs font-bold tracking-wide uppercase',
+    md: 'min-h-[48px] px-4 py-3 text-sm font-bold',
+    lg: 'min-h-[56px] px-5 py-3.5 font-display text-2xl uppercase tracking-wide',
+    xl: 'min-h-[64px] px-6 py-4 font-display text-[1.75rem] uppercase tracking-wide',
   };
   return (
     <button
       className={`pressable inline-flex items-center justify-center gap-2.5 ${VARIANTS[variant]} ${sizes[size]} ${className}`}
       {...rest}
     >
-      {Icon && <Icon className={size === 'sm' ? 'w-3.5 h-3.5' : 'w-5 h-5'} />}
+      {Icon && <Icon className={size === 'sm' ? 'w-4 h-4' : 'w-5 h-5'} strokeWidth={2.5} aria-hidden="true" />}
       {children}
     </button>
   );
@@ -65,36 +104,32 @@ export function IconButton({ icon: Icon, className = '', label, ...rest }) {
   return (
     <button
       aria-label={label}
-      className={`pressable inline-flex items-center justify-center w-11 h-11 rounded-full text-zinc-400 hover:text-zinc-100 hover:bg-white/5 ${className}`}
+      title={label}
+      className={`pressable inline-flex items-center justify-center w-11 h-11 rounded-full text-fg-muted hover:text-fg hover:bg-surface-2 ${className}`}
       {...rest}
     >
-      <Icon className="w-5 h-5" />
+      <Icon className="w-5 h-5" strokeWidth={2.2} aria-hidden="true" />
     </button>
   );
 }
 
-// ── List row used on Home / Plan / Mobility ──────────────────────────────────
-export function ListRow({ icon, iconClass = 'text-accent', title, subtitle, badge, onClick, className = '', right }) {
+// ── List row ─────────────────────────────────────────────────────────────────
+export function ListRow({ icon, iconClass = 'text-accent', title, subtitle, badge, onClick, className = '', right, accentBar }) {
   return (
     <button
       onClick={onClick}
-      className={`pressable card w-full p-4 flex items-center gap-4 text-left hover:border-line-2 ${className}`}
+      className={`pressable card w-full p-4 flex items-center gap-4 text-left hover:border-line-2 relative overflow-hidden ${className}`}
     >
-      {icon && (
-        <div className="w-11 h-11 rounded-2xl bg-white/[0.04] border border-line flex items-center justify-center shrink-0">
-          {typeof icon === 'string'
-            ? <span className="text-2xl leading-none">{icon}</span>
-            : React.createElement(icon, { className: `w-5 h-5 ${iconClass}` })}
-        </div>
-      )}
+      {accentBar && <div className={`absolute left-0 top-0 bottom-0 w-1.5 bg-gradient-to-b ${accentBar}`} aria-hidden="true" />}
+      {icon && <IconTile icon={icon} iconClass={iconClass} />}
       <div className="flex-1 min-w-0">
-        <div className="font-display text-xl text-zinc-50 leading-tight flex items-center gap-2 min-w-0">
+        <div className="font-display text-2xl text-fg leading-none uppercase flex items-center gap-2 min-w-0">
           <span className="line-clamp-2">{title}</span>
-          {badge && <span className="text-[10px] font-body font-bold tracking-widest text-accent bg-accent/10 px-2 py-0.5 rounded-full shrink-0">{badge}</span>}
+          {badge && <span className="text-[10px] font-body font-bold tracking-widest text-on-accent bg-accent px-2 py-0.5 rounded-md shrink-0">{badge}</span>}
         </div>
-        {subtitle && <div className="text-xs text-zinc-500 mt-0.5 truncate">{subtitle}</div>}
+        {subtitle && <div className="text-sm text-fg-muted mt-1 truncate">{subtitle}</div>}
       </div>
-      {right ?? <ChevronRight className="w-5 h-5 text-zinc-600 shrink-0" />}
+      {right ?? <ChevronRight className="w-5 h-5 text-fg-faint shrink-0" aria-hidden="true" />}
     </button>
   );
 }
@@ -102,13 +137,15 @@ export function ListRow({ icon, iconClass = 'text-accent', title, subtitle, badg
 // ── Segmented control ────────────────────────────────────────────────────────
 export function Segmented({ value, onChange, options, className = '' }) {
   return (
-    <div className={`flex gap-1 p-1 rounded-2xl bg-white/[0.04] border border-line ${className}`}>
+    <div role="tablist" className={`flex gap-1 p-1 rounded-2xl bg-surface border border-line ${className}`}>
       {options.map(o => (
         <button
           key={o.value}
+          role="tab"
+          aria-selected={value === o.value}
           onClick={() => onChange(o.value)}
-          className={`flex-1 py-2.5 rounded-xl text-xs font-bold tracking-widest uppercase transition-colors ${
-            value === o.value ? 'bg-zinc-100 text-zinc-950 shadow' : 'text-zinc-400 hover:text-zinc-200'
+          className={`flex-1 min-h-[44px] rounded-xl text-xs font-bold tracking-widest uppercase transition-colors ${
+            value === o.value ? 'bg-accent text-on-accent shadow' : 'text-fg-muted hover:text-fg'
           }`}
         >
           {o.label}
@@ -118,25 +155,63 @@ export function Segmented({ value, onChange, options, className = '' }) {
   );
 }
 
+// ── Chip (filter / suggestion) ───────────────────────────────────────────────
+export function Chip({ active, children, className = '', ...rest }) {
+  return (
+    <button
+      aria-pressed={active}
+      className={`pressable min-h-[40px] px-3.5 rounded-full text-sm font-semibold border transition-colors ${
+        active ? 'bg-accent border-accent text-on-accent' : 'bg-surface border-line text-fg-muted hover:text-fg hover:border-line-2'
+      } ${className}`}
+      {...rest}
+    >
+      {children}
+    </button>
+  );
+}
+
 // ── Stat tile ────────────────────────────────────────────────────────────────
-export function Stat({ icon: Icon, iconClass = 'text-accent', value, label, className = '' }) {
+export function Stat({ icon: Icon, iconClass = 'text-accent', value, label, sub, className = '' }) {
   return (
     <Card className={`p-4 ${className}`}>
-      {Icon && <Icon className={`w-5 h-5 mb-3 ${iconClass}`} />}
-      <div className="font-display text-3xl text-zinc-50 leading-none tabular">{value}</div>
+      {Icon && <Icon className={`w-5 h-5 mb-3 ${iconClass}`} strokeWidth={2.2} aria-hidden="true" />}
+      <div className="font-display text-4xl text-fg leading-none tabular">{value}</div>
       <div className="label mt-2">{label}</div>
+      {sub && <div className="text-xs text-fg-faint mt-0.5">{sub}</div>}
     </Card>
   );
 }
 
+// ── Leaderboard rank ─────────────────────────────────────────────────────────
+const RANK = {
+  1: { bg: 'bg-gold', fg: 'text-[#1c1917]', ring: 'ring-gold/40' },
+  2: { bg: 'bg-slate-300', fg: 'text-slate-900', ring: 'ring-slate-300/40' },
+  3: { bg: 'bg-amber-700', fg: 'text-amber-50', ring: 'ring-amber-700/40' },
+};
+export function RankBadge({ rank }) {
+  const r = RANK[rank];
+  if (r) {
+    return (
+      <div className={`w-9 h-9 rounded-full ${r.bg} ${r.fg} ring-4 ${r.ring} flex items-center justify-center shrink-0`} aria-label={`Platz ${rank}`}>
+        {rank === 1 ? <Trophy className="w-4.5 h-4.5" strokeWidth={2.5} aria-hidden="true" /> : <span className="font-display text-lg leading-none">{rank}</span>}
+      </div>
+    );
+  }
+  return (
+    <div className="w-9 h-9 rounded-full bg-surface-2 border border-line text-fg-muted flex items-center justify-center shrink-0 font-display text-lg leading-none" aria-label={`Platz ${rank}`}>
+      {rank}
+    </div>
+  );
+}
+
 // ── Progress ring ────────────────────────────────────────────────────────────
-export function ProgressRing({ value = 0, size = 220, stroke = 10, color = '#ef4444', track = 'rgba(255,255,255,0.08)', children }) {
+export function ProgressRing({ value = 0, size = 220, stroke = 10, color = '#f97316', track = 'rgba(148,163,184,0.15)', children, label }) {
   const r = (size - stroke) / 2;
   const c = 2 * Math.PI * r;
   const pct = Math.min(100, Math.max(0, value));
   return (
-    <div className="relative inline-flex items-center justify-center" style={{ width: size, height: size }}>
-      <svg width={size} height={size} className="-rotate-90">
+    <div className="relative inline-flex items-center justify-center" style={{ width: size, height: size }} role="progressbar" aria-valuenow={Math.round(pct)} aria-valuemin={0} aria-valuemax={100} aria-label={label}>
+      <svg width={size} height={size} className="-rotate-90" aria-hidden="true">
         <circle cx={size / 2} cy={size / 2} r={r} stroke={track} strokeWidth={stroke} fill="none" />
         <circle
           cx={size / 2} cy={size / 2} r={r}
@@ -151,37 +226,37 @@ export function ProgressRing({ value = 0, size = 220, stroke = 10, color = '#ef4
   );
 }
 
-// ── Progress bar ─────────────────────────────────────────────────────────────
-export function ProgressBar({ value = 0, color = 'bg-accent', className = '' }) {
+export function ProgressBar({ value = 0, color = 'bg-accent', className = '', label }) {
+  const pct = Math.min(100, Math.max(0, value));
   return (
-    <div className={`h-1.5 bg-white/[0.06] rounded-full overflow-hidden ${className}`}>
-      <div className={`h-full ${color} rounded-full transition-all duration-300`} style={{ width: `${Math.min(100, Math.max(0, value))}%` }} />
+    <div className={`h-2 bg-surface-2 rounded-full overflow-hidden ${className}`} role="progressbar" aria-valuenow={Math.round(pct)} aria-valuemin={0} aria-valuemax={100} aria-label={label}>
+      <div className={`h-full ${color} rounded-full transition-all duration-300`} style={{ width: `${pct}%` }} />
     </div>
   );
 }
 
 // ── Modal (bottom sheet on mobile) ───────────────────────────────────────────
-export function Sheet({ onClose, children, className = '' }) {
+export function Sheet({ onClose, children, className = '', title }) {
   return (
     <div className="fixed inset-0 z-50 flex items-end sm:items-center sm:justify-center bg-black/70 animate-fade-in" onClick={onClose}>
       <div
-        className={`glass border-t sm:border border-line-2 w-full sm:max-w-md sm:rounded-3xl rounded-t-3xl p-6 safe-bottom animate-fade-up ${className}`}
+        role="dialog" aria-modal="true" aria-label={title}
+        className={`bg-surface border-t sm:border border-line-2 w-full sm:max-w-md sm:rounded-3xl rounded-t-3xl p-6 safe-bottom animate-fade-up ${className}`}
         onClick={e => e.stopPropagation()}
       >
-        <div className="mx-auto w-10 h-1 rounded-full bg-white/15 mb-5 sm:hidden" />
+        <div className="mx-auto w-10 h-1 rounded-full bg-line-2 mb-5 sm:hidden" aria-hidden="true" />
         {children}
       </div>
     </div>
   );
 }
 
-// Centered confirm dialog
 export function Dialog({ title, text, children, className = '' }) {
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/75 p-6 animate-fade-in">
-      <div className={`card p-6 w-full max-w-sm animate-pop ${className}`}>
-        {title && <div className="font-display text-2xl text-zinc-50 leading-tight mb-2">{title}</div>}
-        {text && <div className="text-sm text-zinc-400 mb-5">{text}</div>}
+      <div role="alertdialog" aria-modal="true" aria-label={title} className={`card p-6 w-full max-w-sm animate-pop ${className}`}>
+        {title && <div className="font-display text-3xl uppercase text-fg leading-none mb-2">{title}</div>}
+        {text && <div className="text-sm text-fg-muted mb-5">{text}</div>}
         {children}
       </div>
     </div>
@@ -189,28 +264,26 @@ export function Dialog({ title, text, children, className = '' }) {
 }
 
 // ── Empty state ──────────────────────────────────────────────────────────────
-export function Empty({ icon: Icon, emoji, title, text }) {
+export function Empty({ icon: Icon, title, text, action }) {
   return (
     <div className="card-soft flex flex-col items-center justify-center py-14 px-6 text-center">
-      {Icon && <Icon className="w-10 h-10 text-zinc-700 mb-4" />}
-      {emoji && <div className="text-4xl mb-4">{emoji}</div>}
-      <div className="font-display text-xl text-zinc-300 mb-1">{title}</div>
-      {text && <div className="text-xs text-zinc-500">{text}</div>}
+      {Icon && <IconTile icon={Icon} size="lg" iconClass="text-fg-muted" className="mb-4" />}
+      <div className="font-display text-2xl uppercase text-fg mb-1">{title}</div>
+      {text && <div className="text-sm text-fg-muted">{text}</div>}
+      {action && <div className="mt-4">{action}</div>}
     </div>
   );
 }
 
-// ── Skeleton ─────────────────────────────────────────────────────────────────
 export function Skeleton({ className = '' }) {
-  return <div className={`skeleton ${className}`} />;
+  return <div className={`skeleton ${className}`} aria-hidden="true" />;
 }
 
-// ── Error line ───────────────────────────────────────────────────────────────
 export function ErrorText({ children, className = '' }) {
   if (!children) return null;
   return (
-    <div className={`flex items-start gap-2 text-sm text-red-400 ${className}`}>
-      <span className="mt-0.5">⚠︎</span>
+    <div role="alert" className={`flex items-start gap-2 text-sm text-red-400 ${className}`}>
+      <AlertCircle className="w-4 h-4 mt-0.5 shrink-0" aria-hidden="true" />
       <span>{children}</span>
     </div>
   );

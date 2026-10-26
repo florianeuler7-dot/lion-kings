@@ -1,10 +1,10 @@
 // Netlify Function: coach-chat
-// Returns a Claude response in the context of the NO EXCUSES coaching system
+// Returns a Claude response in the context of the WinterArc coaching system
 
 const MODEL = 'claude-sonnet-5-5';
 const PLAN_KEYS = ['push', 'pull', 'legs', 'aesthetic', 'cardio', 'rest'];
 
-const COACH_SYSTEM_BASE = `Du bist der Coach in der App "NO EXCUSES", einer Trainings-App für eine kleine Crew von ambitionierten Sportlern.
+const COACH_SYSTEM_BASE = `Du bist der Coach in der App "WinterArc 26/27", einer Trainings-App für eine kleine Crew von ambitionierten Sportlern.
 
 DEINE ROLLE:
 - Du erstellst, optimierst und besprichst Trainingspläne
