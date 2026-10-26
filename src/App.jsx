@@ -330,12 +330,27 @@ function Shell() {
     }
   };
 
-  const cancelActivity = () => {
+  const cancelActivity = async () => {
     clearLiveStatus(user.id);
     setCombinedFlow(false);
-    pendingCombinedCardioRef.current = null;
     setActiveWorkout(null);
     setScreen('home');
+    // Cardio was already done in the combined flow – don't lose it when mobility is cancelled
+    const pending = pendingCombinedCardioRef.current;
+    pendingCombinedCardioRef.current = null;
+    if (pending) {
+      try {
+        await persistWorkout({
+          date: new Date().toISOString(),
+          planKey: 'cardio',
+          planName: pending.type,
+          logs: [],
+          duration: pending.durationMin,
+          isCardio: true,
+        });
+        showToast('Cardio gespeichert – Mobility übersprungen', 'info');
+      } catch (e) {}
+    }
   };
 
   // Hidden file input for changing avatar after onboarding

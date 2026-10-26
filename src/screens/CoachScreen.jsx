@@ -197,12 +197,18 @@ export default function CoachScreen({ user, currentPlan, currentSchedule, onPlan
   };
 
   const acceptPlan = async () => {
+    const plan = proposedPlan;
     setBusy(true);
+    // Clear first: onPlanSaved navigates away and unmounts this screen,
+    // so a cleanup after the await would never run and the banner would reappear.
+    setProposedPlan(null);
+    removeKey(`${storageKey}_plan`);
     try {
-      await onPlanSaved(proposedPlan);
-      setProposedPlan(null);
+      await onPlanSaved(plan);
       setReviewOpen(false);
-    } catch (e) {}
+    } catch (e) {
+      setProposedPlan(plan); // keep it so the user can retry
+    }
     setBusy(false);
   };
 
