@@ -212,7 +212,7 @@ export function CustomWorkoutModal({ onSave, onClose }) {
 }
 
 // ===== HOME =====
-export default function HomeScreen({ user, onLogout, onChangeAvatar, plan: PLAN, todayPlan, todayKey, todayName, history, dataLoading, onStart, onPickOther, onStartCardio, onStartMobility, onStartCombined, onLogCustom }) {
+export default function HomeScreen({ user, onLogout, onChangeAvatar, plan: PLAN, todayPlan, todayKey, todayName, history, dataLoading, loadError, onRetry, onStart, onPickOther, onStartCardio, onStartMobility, onStartCombined, onLogCustom }) {
   const { release, unseen, markSeen } = useLatestRelease();
 
   const isRest = todayKey === 'rest';
@@ -261,6 +261,21 @@ export default function HomeScreen({ user, onLogout, onChangeAvatar, plan: PLAN,
         </button>
         <IconButton icon={LogOut} label="Abmelden" onClick={onLogout} className="text-zinc-600" />
       </div>
+
+      {loadError && (
+        <Card className="mb-5 p-4 border-accent/40 bg-accent/[0.06] animate-fade-up">
+          <div className="flex items-start gap-3">
+            <span className="text-xl leading-none mt-0.5">⚠️</span>
+            <div className="flex-1 min-w-0">
+              <div className="font-display text-base text-zinc-50 mb-1">DATEN KONNTEN NICHT GELADEN WERDEN</div>
+              <div className="text-xs text-zinc-400 break-words">{loadError}</div>
+            </div>
+          </div>
+          <Button variant="secondary" size="sm" className="w-full mt-3" onClick={onRetry} disabled={dataLoading}>
+            {dataLoading ? 'Lade…' : 'Nochmal versuchen'}
+          </Button>
+        </Card>
+      )}
 
       {unseen && <ReleaseCard release={release} onDismiss={markSeen} />}
 
