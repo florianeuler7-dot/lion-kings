@@ -5,7 +5,7 @@
 //                           cached copy only as offline fallback
 //   • Hashed build assets (/assets/*) → cache-first (immutable)
 //   • Everything else (Supabase API, Netlify functions, fonts, third-party) → network only
-const CACHE = 'noexcuses-v2';
+const CACHE = 'winterarc-v3';
 
 self.addEventListener('install', (e) => {
   e.waitUntil(caches.open(CACHE).then(c => c.add('/').catch(() => {})));

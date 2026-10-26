@@ -2,7 +2,7 @@
 export const MOBILITY = {
   hip: {
     name: 'Hüfte',
-    icon: '🦵',
+    icon: 'PersonStanding',
     description: 'Ideal nach Beintag oder bei viel Sitzen',
     exercises: [
       { name: '90/90 Hip Switch', duration: '8 pro Seite', steps: ['Beide Beine im 90°-Winkel auf den Boden, eines vor dir, eines seitlich', 'Hüfte rollen, Beine zur anderen Seite drehen', 'Oberkörper aufrecht halten, Bewegung kommt aus der Hüfte', 'Langsam und kontrolliert'] },
@@ -14,7 +14,7 @@ export const MOBILITY = {
   },
   shoulder: {
     name: 'Schulter',
-    icon: '💪',
+    icon: 'Hand',
     description: 'Nach Push-Tag oder bei verspannten Schultern',
     exercises: [
       { name: 'Wall Slides', duration: '10 Wdh', steps: ['Mit dem Rücken zur Wand, Arme im 90°-Winkel an die Wand', 'Hände, Ellbogen, Schultern und Po berühren die Wand', 'Arme langsam nach oben gleiten', 'Kontakt zur Wand halten – nicht abheben'] },
@@ -26,7 +26,7 @@ export const MOBILITY = {
   },
   back: {
     name: 'Rücken',
-    icon: '🔙',
+    icon: 'StretchVertical',
     description: 'Nach Pull-Tag oder bei langem Sitzen',
     exercises: [
       { name: 'Cat-Cow', duration: '10 Wdh', steps: ['Vierfüßlerstand, Hände unter Schultern, Knie unter Hüfte', 'Einatmen: Rücken ins Hohlkreuz, Blick nach oben', 'Ausatmen: Rücken rund machen, Kinn zur Brust', 'Langsam und kontrolliert'] },
@@ -38,7 +38,7 @@ export const MOBILITY = {
   },
   tspine: {
     name: 'Brustwirbelsäule',
-    icon: '⬆️',
+    icon: 'MoveVertical',
     description: 'Für aufrechte Haltung, vor Push-Tagen ideal',
     exercises: [
       { name: 'Foam Roll T-Spine', duration: '8-10 Wdh', steps: ['Foam Roller quer unter die obere Brustwirbelsäule', 'Hände hinter den Kopf, Ellbogen zusammen', 'Brustwirbelsäule über den Roller nach hinten dehnen', 'Roller leicht verschieben, mehrere Stellen bearbeiten'] },
@@ -50,7 +50,7 @@ export const MOBILITY = {
   },
   fullbody: {
     name: 'Ganzkörper',
-    icon: '🌿',
+    icon: 'Activity',
     description: 'Allround-Mobility für Cardio-Tage',
     exercises: [
       { name: 'Cat-Cow', duration: '10 Wdh', steps: ['Vierfüßlerstand', 'Einatmen: Rücken durchhängen lassen, Blick nach oben', 'Ausatmen: Rücken rund, Kinn zur Brust', 'Atmung mit Bewegung verbinden'] },
@@ -63,7 +63,7 @@ export const MOBILITY = {
   },
   neck: {
     name: 'Nacken',
-    icon: '👤',
+    icon: 'Brain',
     description: 'Bei Schreibtisch-Verspannungen',
     exercises: [
       { name: 'Chin Tucks', duration: '10 Wdh', steps: ['Aufrecht sitzen oder stehen', 'Kinn leicht nach hinten ziehen (Doppelkinn machen)', 'Kopf bleibt waagerecht – nicht nach unten kippen', '2 Sekunden halten, lösen'] },

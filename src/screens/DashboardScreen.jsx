@@ -1,14 +1,13 @@
 import React, { useEffect, useRef, useState } from 'react';
-import { Zap, Flame, Coffee, Heart, Activity, Dumbbell, Forward, StickyNote, MessageCircle, Send } from 'lucide-react';
+import { Zap, Flame, Coffee, Heart, Activity, Dumbbell, Forward, StickyNote, MessageCircle, Send, Users } from 'lucide-react';
 import Avatar from '../components/Avatar';
-import { ScreenHeader, Card, Segmented, Skeleton, Empty } from '../components/ui';
+import { ScreenHeader, Card, Segmented, Skeleton, Empty, Chip, RankBadge } from '../components/ui';
 import { supabase, getAllUsers, getAllLiveStatuses, getActivityFeed, getReactionsForWorkouts, getCommentsForWorkouts, toggleReaction, addComment, computeUserStats } from '../supabase';
 import { mergeCardioMobilityPairs, formatDuration, heaviestOf } from '../lib/workouts';
 import { relativeTime, startOfWeek } from '../lib/date';
 import { useToast } from '../components/Toast';
 
 const REACTIONS = ['💪', '🔥', '👏', '⚡'];
-const MEDALS = ['🥇', '🥈', '🥉'];
 
 export default function DashboardScreen({ user, optionalDays = new Set() }) {
   const showToast = useToast();
@@ -37,7 +36,6 @@ export default function DashboardScreen({ user, optionalDays = new Set() }) {
       ]);
       if (!mountedRef.current) return;
       setUsers(allUsers);
-      // Only show statuses updated within last 3 minutes (active workout ping), never own
       const threeMinAgo = Date.now() - 3 * 60 * 1000;
       setLiveStatuses(statuses.filter(s =>
         s.user_id !== user.id && new Date(s.updated_at).getTime() > threeMinAgo
@@ -91,7 +89,6 @@ export default function DashboardScreen({ user, optionalDays = new Set() }) {
   }, []);
 
   const handleReaction = async (workoutId, emoji) => {
-    // Optimistic update
     setReactions(prev => {
       const current = prev[workoutId] || [];
       const idx = current.findIndex(r => r.user_id === user.id && r.emoji === emoji);
@@ -135,7 +132,7 @@ export default function DashboardScreen({ user, optionalDays = new Set() }) {
   if (loading) {
     return (
       <div className="pt-3 animate-fade-in">
-        <ScreenHeader eyebrow="Die Crew" title="CREW" accent="DASHBOARD" />
+        <ScreenHeader eyebrow="Die Crew" title="Crew" accent="Dashboard" />
         <Skeleton className="h-12 mb-4" />
         <div className="space-y-2.5">
           {[0, 1, 2, 3].map(i => <Skeleton key={i} className="h-[76px]" />)}
@@ -146,30 +143,30 @@ export default function DashboardScreen({ user, optionalDays = new Set() }) {
 
   return (
     <div className="pt-3 animate-fade-in">
-      <ScreenHeader eyebrow="Die Crew" title="CREW" accent="DASHBOARD" />
+      <ScreenHeader eyebrow="Die Crew" title="Crew" accent="Dashboard" />
 
       {error && (
-        <Card soft className="p-4 mb-4 text-sm text-zinc-400 flex items-center justify-between gap-3">
+        <Card soft className="p-4 mb-4 text-sm text-fg-muted flex items-center justify-between gap-3" role="alert">
           <span>Crew-Daten konnten nicht geladen werden.</span>
-          <button onClick={() => { setLoading(true); loadAll(); }} className="text-accent font-semibold text-xs">Nochmal</button>
+          <button onClick={() => { setLoading(true); loadAll(); }} className="text-accent font-bold text-xs uppercase tracking-wide min-h-[44px] px-2">Nochmal</button>
         </Card>
       )}
 
       {liveStatuses.length > 0 && (
-        <Card className="p-4 mb-5 border-accent/30">
+        <Card className="p-4 mb-5 border-accent/40">
           <div className="label text-accent mb-3 flex items-center gap-2">
-            <Zap className="w-4 h-4 animate-pulse-soft" /> Live – gerade aktiv
+            <Zap className="w-4 h-4 animate-pulse-soft" aria-hidden="true" /> Live – gerade aktiv
           </div>
           <div className="space-y-3">
             {liveStatuses.map(s => (
               <div key={s.user_id} className="flex items-center gap-3">
                 <div className="relative">
                   <Avatar user={s.users} size="md" />
-                  <div className="absolute -bottom-0.5 -right-0.5 w-3 h-3 bg-accent rounded-full border-2 border-surface animate-pulse-soft" />
+                  <div className="absolute -bottom-0.5 -right-0.5 w-3 h-3 bg-accent rounded-full border-2 border-surface animate-pulse-soft" aria-hidden="true" />
                 </div>
                 <div className="flex-1 min-w-0">
-                  <div className="font-display text-base text-zinc-50">{s.users?.name?.toUpperCase()}</div>
-                  <div className="text-xs text-zinc-400 truncate">{s.status} · {s.detail}</div>
+                  <div className="font-display text-xl uppercase text-fg leading-none">{s.users?.name}</div>
+                  <div className="text-xs text-fg-muted truncate mt-0.5">{s.status} · {s.detail}</div>
                 </div>
               </div>
             ))}
@@ -187,47 +184,43 @@ export default function DashboardScreen({ user, optionalDays = new Set() }) {
       {tab === 'leaderboard' && (
         <div>
           <div className="flex gap-2 mb-4">
-            {[['week', 'Diese Woche'], ['month', '30 Tage']].map(([v, l]) => (
-              <button key={v} onClick={() => setLbFilter(v)}
-                className={`pressable px-3.5 py-1.5 rounded-full text-xs font-semibold border transition-colors ${lbFilter === v ? 'bg-accent/15 border-accent/50 text-accent' : 'border-line text-zinc-500'}`}>
-                {l}
-              </button>
-            ))}
+            <Chip active={lbFilter === 'week'} onClick={() => setLbFilter('week')}>Diese Woche</Chip>
+            <Chip active={lbFilter === 'month'} onClick={() => setLbFilter('month')}>30 Tage</Chip>
           </div>
-          <div className="space-y-2.5">
+          <ol className="space-y-2.5">
             {leaderboard.map((row, idx) => {
               const isMe = row.user.id === user.id;
               return (
-                <Card key={row.user.id} className={`p-3.5 flex items-center gap-3 ${isMe ? 'border-accent/40 bg-accent/[0.06]' : ''}`}>
-                  <div className="font-display text-2xl w-8 text-center shrink-0">
-                    {MEDALS[idx] || <span className="text-zinc-600 text-base">#{idx + 1}</span>}
-                  </div>
-                  <div className="relative shrink-0">
-                    <Avatar user={row.user} size="md" />
-                    {row.live && <div className="absolute -bottom-0.5 -right-0.5 w-3 h-3 bg-accent rounded-full border-2 border-surface animate-pulse-soft" />}
-                  </div>
-                  <div className="flex-1 min-w-0">
-                    <div className="font-display text-lg text-zinc-50 truncate leading-tight">
-                      {row.user.name.toUpperCase()}
-                      {isMe && <span className="ml-2 text-[10px] font-body font-bold tracking-widest text-accent">DU</span>}
+                <li key={row.user.id}>
+                  <Card className={`p-3.5 flex items-center gap-3 ${isMe ? 'border-accent/50 bg-accent/[0.07]' : ''}`}>
+                    <RankBadge rank={idx + 1} />
+                    <div className="relative shrink-0">
+                      <Avatar user={row.user} size="md" />
+                      {row.live && <div className="absolute -bottom-0.5 -right-0.5 w-3 h-3 bg-accent rounded-full border-2 border-surface animate-pulse-soft" aria-hidden="true" />}
                     </div>
-                    {row.stats.streak > 0 ? (
-                      <div className="text-xs text-zinc-500 flex items-center gap-1">
-                        <Flame className="w-3 h-3 text-accent-2" /> {row.stats.streak} Tage Streak
+                    <div className="flex-1 min-w-0">
+                      <div className="font-display text-xl uppercase text-fg truncate leading-none">
+                        {row.user.name}
+                        {isMe && <span className="ml-2 text-[10px] font-body font-bold tracking-widest text-on-accent bg-accent px-1.5 py-0.5 rounded-md align-middle">Du</span>}
                       </div>
-                    ) : (
-                      <div className="text-xs text-zinc-600">Kein Streak</div>
-                    )}
-                  </div>
-                  <div className="text-right shrink-0">
-                    <div className="font-display text-3xl text-accent leading-none tabular">{row.count}</div>
-                    <div className="text-[10px] text-zinc-500 font-semibold tracking-wider uppercase mt-0.5">Workouts</div>
-                  </div>
-                </Card>
+                      {row.stats.streak > 0 ? (
+                        <div className="text-xs text-fg-muted flex items-center gap-1 mt-1">
+                          <Flame className="w-3.5 h-3.5 text-accent" aria-hidden="true" /> {row.stats.streak} Tage Streak
+                        </div>
+                      ) : (
+                        <div className="text-xs text-fg-faint mt-1">Kein Streak</div>
+                      )}
+                    </div>
+                    <div className="text-right shrink-0">
+                      <div className="font-display text-4xl text-accent leading-none tabular">{row.count}</div>
+                      <div className="text-[10px] text-fg-faint font-bold tracking-wider uppercase mt-0.5">Workouts</div>
+                    </div>
+                  </Card>
+                </li>
               );
             })}
-            {leaderboard.length === 0 && <Empty emoji="🦁" title="Noch keine Daten" />}
-          </div>
+          </ol>
+          {leaderboard.length === 0 && <Empty icon={Users} title="Noch keine Daten" />}
         </div>
       )}
 
@@ -255,17 +248,17 @@ export default function DashboardScreen({ user, optionalDays = new Set() }) {
                   <Avatar user={w.users} size="sm" className="shrink-0 mt-0.5" />
                   <div className="flex-1 min-w-0">
                     <div className="flex items-baseline justify-between gap-2">
-                      <div className="font-display text-base text-zinc-50 truncate">
-                        {w.users?.name?.toUpperCase()}
-                        {isMe && <span className="ml-2 text-[10px] font-body font-bold tracking-widest text-accent">DU</span>}
+                      <div className="font-display text-xl uppercase text-fg truncate leading-none">
+                        {w.users?.name}
+                        {isMe && <span className="ml-2 text-[10px] font-body font-bold tracking-widest text-on-accent bg-accent px-1.5 py-0.5 rounded-md align-middle">Du</span>}
                       </div>
-                      <div className="text-xs text-zinc-500 shrink-0">{relativeTime(w.created_at)}</div>
+                      <div className="text-xs text-fg-muted shrink-0">{relativeTime(w.created_at)}</div>
                     </div>
-                    <div className="text-xs text-zinc-400 mt-0.5 flex items-center gap-1.5 flex-wrap">
-                      {w.is_cardio && <Heart className="w-3 h-3 text-accent" />}
-                      {w.is_mobility && <Activity className="w-3 h-3 text-ok" />}
-                      {!w.is_cardio && !w.is_mobility && <Dumbbell className="w-3 h-3 text-zinc-400" />}
-                      <span className="text-zinc-200 font-medium">{w.plan_name}</span>
+                    <div className="text-sm text-fg-muted mt-1 flex items-center gap-1.5 flex-wrap">
+                      {w.is_cardio && <Heart className="w-3.5 h-3.5 text-accent" aria-hidden="true" />}
+                      {w.is_mobility && <Activity className="w-3.5 h-3.5 text-ok" aria-hidden="true" />}
+                      {!w.is_cardio && !w.is_mobility && <Dumbbell className="w-3.5 h-3.5 text-fg-muted" aria-hidden="true" />}
+                      <span className="text-fg font-semibold">{w.plan_name}</span>
                       {dur && <span>· {dur}</span>}
                       {w.is_mobility && !w.is_cardio && <span>· {w.completed}/{w.total}</span>}
                       {w.is_cardio && w.is_mobility && <span>· {w.completed}/{w.total} Mobility</span>}
@@ -276,24 +269,24 @@ export default function DashboardScreen({ user, optionalDays = new Set() }) {
                 {logs.length > 0 && (
                   <div className="ml-12 mt-2.5 space-y-0.5">
                     {logs.slice(0, 3).map((l, i) => (
-                      <div key={i} className="text-xs text-zinc-500 truncate">
-                        <span className="text-zinc-300">{l.name}</span> · <span className="font-mono">{l.sets.length} × {heaviestOf(l.sets)} kg</span>
+                      <div key={i} className="text-xs text-fg-muted truncate">
+                        <span className="text-fg">{l.name}</span> · <span className="font-mono">{l.sets.length} × {heaviestOf(l.sets)} kg</span>
                       </div>
                     ))}
-                    {logs.length > 3 && <div className="text-xs text-zinc-600">+ {logs.length - 3} weitere Übungen</div>}
+                    {logs.length > 3 && <div className="text-xs text-fg-faint">+ {logs.length - 3} weitere Übungen</div>}
                   </div>
                 )}
 
                 {w.skipped_exercises && w.skipped_exercises.length > 0 && (
-                  <div className="ml-12 mt-2 text-xs text-accent-2/80 flex items-center gap-1">
-                    <Forward className="w-3 h-3" /> {w.skipped_exercises.length} übersprungen
+                  <div className="ml-12 mt-2 text-xs text-accent-2 flex items-center gap-1">
+                    <Forward className="w-3 h-3" aria-hidden="true" /> {w.skipped_exercises.length} übersprungen
                   </div>
                 )}
 
                 {w.notes && (
-                  <div className="ml-12 mt-2.5 flex gap-2 text-sm bg-white/[0.03] rounded-xl px-3 py-2 border border-line">
-                    <StickyNote className="w-4 h-4 text-gold shrink-0 mt-0.5" />
-                    <div className="text-xs text-zinc-300 italic">{w.notes}</div>
+                  <div className="ml-12 mt-2.5 flex gap-2 text-sm bg-surface-2/60 rounded-xl px-3 py-2 border border-line">
+                    <StickyNote className="w-4 h-4 text-gold shrink-0 mt-0.5" aria-hidden="true" />
+                    <div className="text-xs text-fg italic">{w.notes}</div>
                   </div>
                 )}
 
@@ -305,26 +298,31 @@ export default function DashboardScreen({ user, optionalDays = new Set() }) {
                       <button key={emoji}
                         onClick={() => handleReaction(w.id, emoji)}
                         title={names}
-                        className={`pressable px-2.5 py-1 rounded-full text-sm flex items-center gap-1 border transition-colors ${
-                          userReacted ? 'bg-accent/15 border-accent/50' : 'bg-white/[0.04] border-line'
+                        aria-pressed={userReacted}
+                        aria-label={`${emoji} ${list.length} – ${names}`}
+                        className={`pressable min-h-[40px] px-3 rounded-full text-base flex items-center gap-1.5 border transition-colors ${
+                          userReacted ? 'bg-accent/15 border-accent/60' : 'bg-surface-2 border-line'
                         }`}>
-                        <span>{emoji}</span>
-                        <span className="text-xs text-zinc-300 font-semibold">{list.length}</span>
+                        <span aria-hidden="true">{emoji}</span>
+                        <span className="text-xs text-fg font-bold">{list.length}</span>
                       </button>
                     );
                   })}
                   {REACTIONS.filter(e => !grouped[e]).map(emoji => (
                     <button key={emoji}
                       onClick={() => handleReaction(w.id, emoji)}
-                      className="pressable px-2 py-1 rounded-full text-sm border border-line opacity-40 hover:opacity-100 transition-opacity">
-                      {emoji}
+                      aria-label={`Mit ${emoji} reagieren`}
+                      className="pressable min-h-[40px] min-w-[40px] px-2 rounded-full text-base border border-line opacity-50 hover:opacity-100 transition-opacity">
+                      <span aria-hidden="true">{emoji}</span>
                     </button>
                   ))}
                   <button
                     onClick={() => setOpenComments(openComments === w.id ? null : w.id)}
-                    className={`ml-auto pressable flex items-center gap-1.5 px-2.5 py-1 rounded-full border transition-colors ${openComments === w.id ? 'border-line-2 text-zinc-200' : 'border-transparent text-zinc-500 hover:text-zinc-300'}`}>
-                    <MessageCircle className="w-4 h-4" />
-                    {commentList.length > 0 && <span className="text-xs font-semibold">{commentList.length}</span>}
+                    aria-expanded={openComments === w.id}
+                    aria-label="Kommentare"
+                    className={`ml-auto pressable min-h-[40px] flex items-center gap-1.5 px-3 rounded-full border transition-colors ${openComments === w.id ? 'border-line-2 text-fg' : 'border-transparent text-fg-muted hover:text-fg'}`}>
+                    <MessageCircle className="w-4.5 h-4.5" aria-hidden="true" />
+                    {commentList.length > 0 && <span className="text-xs font-bold">{commentList.length}</span>}
                   </button>
                 </div>
 
@@ -332,8 +330,8 @@ export default function DashboardScreen({ user, optionalDays = new Set() }) {
                   <div className="ml-12 mt-3 space-y-2 animate-fade-in">
                     {commentList.map(c => (
                       <div key={c.id} className="flex items-start gap-2">
-                        <div className="font-display text-xs text-accent shrink-0 pt-0.5">{c.users?.name?.toUpperCase()}</div>
-                        <div className="text-xs text-zinc-300 flex-1">{c.content}</div>
+                        <div className="font-display text-sm uppercase text-accent shrink-0 pt-0.5">{c.users?.name}</div>
+                        <div className="text-sm text-fg flex-1">{c.content}</div>
                       </div>
                     ))}
                     <div className="flex items-center gap-2 mt-2">
@@ -343,13 +341,14 @@ export default function DashboardScreen({ user, optionalDays = new Set() }) {
                         onChange={e => setCommentInputs(prev => ({ ...prev, [w.id]: e.target.value }))}
                         onKeyDown={e => e.key === 'Enter' && handleAddComment(w.id)}
                         placeholder="Kommentar…"
-                        className="input-field px-3 py-2 text-xs rounded-full"
+                        aria-label="Kommentar schreiben"
+                        className="input-field px-4 py-2 text-sm rounded-full"
                       />
                       <button
                         onClick={() => handleAddComment(w.id)}
                         aria-label="Senden"
-                        className="pressable w-9 h-9 shrink-0 btn-primary rounded-full flex items-center justify-center">
-                        <Send className="w-4 h-4 text-white" />
+                        className="pressable w-11 h-11 shrink-0 btn-primary rounded-full flex items-center justify-center">
+                        <Send className="w-4 h-4" aria-hidden="true" />
                       </button>
                     </div>
                   </div>

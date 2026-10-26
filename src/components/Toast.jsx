@@ -11,9 +11,9 @@ export function useToast() {
 
 const ICONS = {
   check: { Icon: Check, cls: 'text-ok' },
-  drink: { Icon: Droplet, cls: 'text-sky-400' },
-  info: { Icon: Info, cls: 'text-zinc-300' },
-  error: { Icon: AlertTriangle, cls: 'text-accent' },
+  drink: { Icon: Droplet, cls: 'text-ice' },
+  info: { Icon: Info, cls: 'text-fg' },
+  error: { Icon: AlertTriangle, cls: 'text-danger' },
 };
 
 export function ToastProvider({ children }) {
@@ -34,19 +34,21 @@ export function ToastProvider({ children }) {
   return (
     <ToastContext.Provider value={show}>
       {children}
-      {toast && (
-        <div
-          key={toast.id}
-          onClick={() => setToast(null)}
-          className="fixed left-0 right-0 z-[100] flex justify-center px-4 pointer-events-none"
-          style={{ top: 'calc(env(safe-area-inset-top, 0px) + 12px)' }}
-        >
-          <div className="pointer-events-auto glass border border-line-2 rounded-full pl-3 pr-4 py-2.5 flex items-center gap-2.5 shadow-2xl animate-fade-up max-w-sm">
-            <Icon className={`w-4 h-4 shrink-0 ${cls}`} />
-            <span className="text-sm text-zinc-100 leading-snug">{toast.msg}</span>
+      <div aria-live="polite" aria-atomic="true">
+        {toast && (
+          <div
+            key={toast.id}
+            onClick={() => setToast(null)}
+            className="fixed left-0 right-0 z-[100] flex justify-center px-4 pointer-events-none"
+            style={{ top: 'calc(env(safe-area-inset-top, 0px) + 12px)' }}
+          >
+            <div className={`pointer-events-auto bg-surface border rounded-2xl pl-3 pr-4 py-3 flex items-center gap-2.5 shadow-2xl animate-fade-up max-w-sm ${toast.kind === 'error' ? 'border-danger/50' : 'border-line-2'}`}>
+              <Icon className={`w-4 h-4 shrink-0 ${cls}`} aria-hidden="true" />
+              <span className="text-sm font-medium text-fg leading-snug">{toast.msg}</span>
+            </div>
           </div>
-        </div>
-      )}
+        )}
+      </div>
     </ToastContext.Provider>
   );
 }

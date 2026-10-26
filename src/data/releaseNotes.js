@@ -9,6 +9,21 @@
 
 const RELEASE_NOTES = [
   {
+    version: "2.0.0",
+    date: "2026-10-26",
+    title: "WinterArc 26/27",
+    highlights: [
+      "Die App heißt jetzt WinterArc 26/27 – neues Icon, neue Farben, neue Schrift",
+      "Arc-Fortschritt auf dem Home-Screen: Tag X von 182, bis 31. März",
+      "Wochenziel-Ring: wie viele Einheiten diese Woche schon stehen",
+      "Schnellstart-Kacheln für Cardio, Mobility und freies Training",
+      "Klarere Icons statt Emojis, größere Tap-Flächen, sichtbarer Fokus",
+      "Orange für Aktionen, Grün für Abschluss, Eisblau für Cardio-Tage",
+    ],
+    thanks: null,
+    motto: "Winter is coming. So are we.",
+  },
+  {
     version: "1.5.0",
     date: "2026-10-26",
     title: "Fresh Look",
@@ -24,21 +39,6 @@ const RELEASE_NOTES = [
     ],
     thanks: null,
     motto: "No excuses. Only reps.",
-  },
-  {
-    version: "1.4.0",
-    date: "2026-04-30",
-    title: "Fresh Drop",
-    highlights: [
-      "Pause-Timer zählt jetzt hoch statt runter — du entscheidest wann du weiter machst",
-      "Empfohlene Pausenzeit als grüner Marker sichtbar",
-      "Letzten Satz korrigieren falls du dich vertippt hast",
-      "Workout-Abschluss jetzt mit vollem Gold-Screen und Stats",
-      "Button wechselt zu 'Übung abschließen' beim letzten Satz",
-      "Verlauf und Feed zeigen relative Zeit statt Datum",
-    ],
-    thanks: "Special thanks to: Davide ♥",
-    motto: "Keep pushing — never back down.",
   },
 ];
 

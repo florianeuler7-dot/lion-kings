@@ -1,32 +1,27 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
-  <rect width="512" height="512" fill="#0a0a0a" rx="110"/>
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#0f172a"/>
+      <stop offset="1" stop-color="#0b1220"/>
+    </linearGradient>
+    <linearGradient id="flame" x1="0" y1="1" x2="0" y2="0">
+      <stop offset="0" stop-color="#ea580c"/>
+      <stop offset="1" stop-color="#fb923c"/>
+    </linearGradient>
+  </defs>
+  <rect width="512" height="512" fill="url(#bg)" rx="112"/>
 
-  <g transform="rotate(-15, 256, 256)" stroke="#aaaaaa" stroke-linecap="round" stroke-linejoin="round" fill="none">
-
-    <!-- Left outer plate -->
-    <rect x="52" y="168" width="52" height="176" rx="22" stroke-width="14" fill="#1a1a1a"/>
-    <!-- Left inner plate -->
-    <rect x="104" y="188" width="40" height="136" rx="18" stroke-width="14" fill="#1a1a1a"/>
-    <!-- Left collar -->
-    <rect x="144" y="218" width="22" height="76" rx="8" stroke-width="12" fill="#1a1a1a"/>
-
-    <!-- Bar -->
-    <rect x="166" y="236" width="180" height="40" rx="8" stroke-width="12" fill="#1a1a1a"/>
-
-    <!-- Center knurl detail -->
-    <circle cx="248" cy="256" r="6" stroke-width="10" fill="#aaaaaa"/>
-    <line x1="266" y1="256" x2="308" y2="256" stroke-width="8"/>
-
-    <!-- Right collar -->
-    <rect x="346" y="218" width="22" height="76" rx="8" stroke-width="12" fill="#1a1a1a"/>
-    <!-- Right inner plate -->
-    <rect x="368" y="188" width="40" height="136" rx="18" stroke-width="14" fill="#1a1a1a"/>
-    <!-- Right outer plate -->
-    <rect x="408" y="168" width="52" height="176" rx="22" stroke-width="14" fill="#1a1a1a"/>
-
-    <!-- Left end cap -->
-    <rect x="36" y="228" width="16" height="56" rx="8" stroke-width="10" fill="#1a1a1a"/>
-    <!-- Right end cap -->
-    <rect x="460" y="228" width="16" height="56" rx="8" stroke-width="10" fill="#1a1a1a"/>
+  <!-- Snowflake (ice) – top left -->
+  <g stroke="#7dd3fc" stroke-width="18" stroke-linecap="round" fill="none" opacity="0.95" transform="translate(150 170)">
+    <line x1="0" y1="-88" x2="0" y2="88"/>
+    <line x1="-76" y1="-44" x2="76" y2="44"/>
+    <line x1="-76" y1="44" x2="76" y2="-44"/>
+    <path d="M0 -88 l-22 -22 M0 -88 l22 -22 M0 88 l-22 22 M0 88 l22 22"/>
+    <path d="M-76 -44 l-30 -8 M-76 -44 l-8 -30 M76 44 l30 8 M76 44 l8 30"/>
+    <path d="M-76 44 l-30 8 M-76 44 l-8 30 M76 -44 l30 -8 M76 -44 l8 -30"/>
   </g>
+
+  <!-- Flame (energy) – bottom right -->
+  <path fill="url(#flame)" d="M330 184c22 40 10 70-6 92 2-30-10-52-28-66 4 34-14 56-30 76-18 22-30 46-26 76 4 40 34 70 76 70s78-32 80-76c2-44-18-74-30-96-10-20-24-44-36-76z"/>
+  <path fill="#fde68a" opacity="0.9" d="M338 322c10 16 8 34-2 46 0-14-6-26-14-34 2 16-6 26-14 36-8 10-12 22-10 36 2 20 16 34 38 34s36-14 36-34c0-22-10-38-18-50-6-10-12-22-16-34z"/>
 </svg>
