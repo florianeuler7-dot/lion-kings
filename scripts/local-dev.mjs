@@ -1,18 +1,30 @@
 // Local dev server for Netlify Functions
-// Fetches COACH_API_KEY from Netlify at startup – no .env file needed
+// API key: uses COACH_API_KEY from the environment / .env, otherwise fetches it from Netlify.
 import http from 'node:http';
 import { execSync } from 'node:child_process';
+import { readFileSync } from 'node:fs';
 
-let apiKey = '';
+const root = new URL('..', import.meta.url).pathname;
+
+// 1. .env file (optional, gitignored)
 try {
-  apiKey = execSync('netlify env:get COACH_API_KEY', {
-    cwd: new URL('..', import.meta.url).pathname,
-    encoding: 'utf-8',
-  }).trim();
-  console.log('✓ COACH_API_KEY loaded from Netlify (' + apiKey.slice(0, 12) + '...)');
-} catch (e) {
-  console.error('✗ Could not load COACH_API_KEY from Netlify:', e.message);
+  const env = readFileSync(`${root}.env`, 'utf-8');
+  for (const line of env.split('\n')) {
+    const m = line.match(/^\s*([A-Z0-9_]+)\s*=\s*(.*)\s*$/);
+    if (m && !process.env[m[1]]) process.env[m[1]] = m[2].replace(/^["']|["']$/g, '');
+  }
+} catch {}
+
+// 2. Netlify CLI
+let apiKey = (process.env.COACH_API_KEY || '').trim();
+if (!apiKey) {
+  try {
+    apiKey = execSync('netlify env:get COACH_API_KEY', { cwd: root, encoding: 'utf-8', stdio: ['ignore', 'pipe', 'ignore'] }).trim();
+  } catch (e) {
+    console.error('✗ Could not load COACH_API_KEY (set it in .env or via `netlify env:get`).');
+  }
 }
+if (apiKey) console.log('✓ COACH_API_KEY loaded (' + apiKey.slice(0, 12) + '...)');
 process.env.COACH_API_KEY = apiKey;
 
 // Provide Netlify global so functions don't throw ReferenceError

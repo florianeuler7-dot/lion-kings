@@ -9,6 +9,23 @@
 
 const RELEASE_NOTES = [
   {
+    version: "1.5.0",
+    date: "2026-10-26",
+    title: "Fresh Look",
+    highlights: [
+      "Komplett neues Design – ruhiger, klarer, schneller",
+      "Pausen- und Cardio-Timer als Ring mit Fortschritt",
+      "Fehler werden jetzt angezeigt statt stumm zu verschwinden",
+      "Crew-Feed zeigt immer aktuelle Daten (kein veralteter Cache mehr)",
+      "Dauer wird überall einheitlich in Minuten gespeichert",
+      "Workouts lassen sich im Verlauf auch ohne Wischen löschen",
+      "Streak und „heute erledigt“ rechnen mit lokaler Zeit",
+      "Eigene Pläne mit weniger als 4 Krafttagen funktionieren jetzt",
+    ],
+    thanks: null,
+    motto: "No excuses. Only reps.",
+  },
+  {
     version: "1.4.0",
     date: "2026-04-30",
     title: "Fresh Drop",
@@ -20,7 +37,7 @@ const RELEASE_NOTES = [
       "Button wechselt zu 'Übung abschließen' beim letzten Satz",
       "Verlauf und Feed zeigen relative Zeit statt Datum",
     ],
-    thanks: "Special thanks to: Davide \u2665",
+    thanks: "Special thanks to: Davide ♥",
     motto: "Keep pushing — never back down.",
   },
 ];

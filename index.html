@@ -2,8 +2,9 @@
 <html lang="de">
   <head>
     <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, user-scalable=no" />
-    <meta name="theme-color" content="#0a0a0a" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+    <meta name="theme-color" content="#09090b" />
+    <meta name="color-scheme" content="dark" />
     <meta name="description" content="NO EXCUSES – Trainings-Agent für die Crew" />
 
     <!-- PWA -->
@@ -21,156 +22,15 @@
     <!-- Fonts -->
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-    <link href="https://fonts.googleapis.com/css2?family=Anton&family=JetBrains+Mono:wght@400;500;700&family=DM+Sans:wght@400;500;700&display=swap" rel="stylesheet" />
-
-    <!-- Tailwind via CDN (simpler deployment) -->
-    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Anton&family=JetBrains+Mono:wght@400;500;700&family=DM+Sans:wght@400;500;600;700&display=swap" rel="stylesheet" />
 
     <title>NO EXCUSES</title>
-
-    <style>
-      html {
-        height: -webkit-fill-available;
-        background: #18181b;
-        overflow-x: hidden;
-      }
-      body, #root {
-        min-height: 100vh;
-        min-height: -webkit-fill-available;
-        min-height: 100dvh;
-        background: #0a0a0a;
-        overflow-x: hidden;
-      }
-      body {
-        font-family: 'DM Sans', sans-serif;
-        color: #f5f5f5;
-        overscroll-behavior: none;
-        -webkit-tap-highlight-color: transparent;
-        -webkit-overflow-scrolling: touch;
-      }
-      .font-display { font-family: 'Anton', sans-serif; letter-spacing: 0.02em; }
-      .font-mono { font-family: 'JetBrains Mono', monospace; }
-      .font-body { font-family: 'DM Sans', sans-serif; }
-      input[type="number"]::-webkit-outer-spin-button,
-      input[type="number"]::-webkit-inner-spin-button { -webkit-appearance: none; margin: 0; }
-      input[type="number"] { -moz-appearance: textfield; }
-      .grain::before {
-        content: '';
-        position: fixed; inset: 0; pointer-events: none; z-index: 1;
-        background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence baseFrequency='0.9'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='0.4'/%3E%3C/svg%3E");
-        opacity: 0.03;
-      }
-      /* Hide scrollbars but keep scrollability */
-      ::-webkit-scrollbar { width: 0; height: 0; display: none; }
-      * { scrollbar-width: none; -ms-overflow-style: none; }
-      .no-scrollbar::-webkit-scrollbar { display: none; }
-      .no-scrollbar { scrollbar-width: none; -ms-overflow-style: none; }
-      /* iOS safe area utilities */
-      .safe-top { padding-top: env(safe-area-inset-top, 0px); }
-      .safe-bottom { padding-bottom: env(safe-area-inset-bottom, 0px); }
-
-      /* Nav: 49px (Apple HIG) + safe-area inset */
-      :root { --nav-btn-h: 49px; --nav-h: calc(var(--nav-btn-h) + env(safe-area-inset-bottom, 0px)); }
-
-      .app-nav {
-        position: fixed;
-        bottom: 0; left: 0; right: 0;
-        z-index: 20;
-        background: #18181b;
-        border-top: 1px solid #27272a;
-        padding-bottom: env(safe-area-inset-bottom, 0px);
-        padding-left: env(safe-area-inset-left, 0px);
-        padding-right: env(safe-area-inset-right, 0px);
-      }
-      .app-nav-inner {
-        height: var(--nav-btn-h);
-        display: flex;
-        align-items: stretch; /* buttons fill full height */
-      }
-      .coach-screen {
-        position: fixed; top: 0; left: 0; right: 0;
-        bottom: var(--nav-h);
-        display: flex; flex-direction: column;
-        overflow: hidden;
-        background: #09090b;
-        z-index: 10;
-      }
-
-      /* Exercise celebration overlay animations */
-      @keyframes celebScale {
-        from { transform: scale(0.3) rotate(-6deg); opacity: 0; }
-        to   { transform: scale(1) rotate(0deg);   opacity: 1; }
-      }
-      @keyframes celebFadeUp {
-        from { opacity: 0; transform: translateY(14px); }
-        to   { opacity: 1; transform: translateY(0);    }
-      }
-      @keyframes celebSpark {
-        0%   { opacity: 1; transform: translateY(0)     scale(1);   }
-        100% { opacity: 0; transform: translateY(-90px) scale(0.4); }
-      }
-      @keyframes celebPulse {
-        0%, 100% { box-shadow: 0 0 0 0 rgba(239,68,68,0); }
-        50%       { box-shadow: 0 0 40px 10px rgba(239,68,68,0.35); }
-      }
-      @keyframes victoryEdge {
-        0%   { opacity: 0.0; box-shadow: inset 0 0  20px  6px rgba(251,191,36,0.0),  inset 0 0  40px 12px rgba(245,158,11,0.0); }
-        25%  { opacity: 1.0; box-shadow: inset 0 0  80px 28px rgba(251,191,36,0.65), inset 0 0 140px 40px rgba(245,158,11,0.4); }
-        55%  { opacity: 1.0; box-shadow: inset 0 0 120px 40px rgba(251,191,36,0.85), inset 0 0 200px 60px rgba(245,158,11,0.55); }
-        80%  { opacity: 1.0; box-shadow: inset 0 0  90px 32px rgba(251,191,36,0.7),  inset 0 0 160px 48px rgba(245,158,11,0.45); }
-        100% { opacity: 0.0; box-shadow: inset 0 0  20px  6px rgba(251,191,36,0.0),  inset 0 0  40px 12px rgba(245,158,11,0.0); }
-      }
-      @keyframes impactFlash {
-        0%   { opacity: 0.65; }
-        100% { opacity: 0; }
-      }
-      @keyframes energyRing {
-        0%   { transform: scale(0.05); opacity: 0.9; }
-        100% { transform: scale(30); opacity: 0; }
-      }
-      @keyframes powerImpact {
-        0%   { transform: scale(2.8) rotate(-4deg); opacity: 0; filter: blur(12px); }
-        55%  { transform: scale(0.88) rotate(1.5deg); opacity: 1; filter: blur(0); }
-        75%  { transform: scale(1.06) rotate(-0.5deg); }
-        88%  { transform: scale(0.97) rotate(0.3deg); }
-        100% { transform: scale(1) rotate(0deg); opacity: 1; }
-      }
-      @keyframes impactLine {
-        0%   { transform: scaleX(0); opacity: 0; }
-        60%  { opacity: 1; }
-        100% { transform: scaleX(1); opacity: 0.7; }
-      }
-      @keyframes auraGlow {
-        0%, 100% { opacity: 0.4; transform: scale(1); }
-        50%       { opacity: 0.9; transform: scale(1.08); }
-      }
-      @keyframes inputShake {
-        0%   { transform: translateX(0); }
-        18%  { transform: translateX(-6px); }
-        36%  { transform: translateX(6px); }
-        54%  { transform: translateX(-5px); }
-        72%  { transform: translateX(4px); }
-        86%  { transform: translateX(-2px); }
-        100% { transform: translateX(0); }
-      }
-      .input-error {
-        border-color: #ef4444 !important;
-        animation: inputShake 0.45s ease both;
-      }
-      @keyframes fireEdge {
-        0%   { opacity: 0.0; box-shadow: inset 0 0  20px  6px rgba(239, 68, 68, 0.0),  inset 0 0  40px 12px rgba(249,115,22,0.0); }
-        20%  { opacity: 1.0; box-shadow: inset 0 0  60px 20px rgba(239, 68, 68, 0.55), inset 0 0 100px 30px rgba(249,115,22,0.3); }
-        50%  { opacity: 1.0; box-shadow: inset 0 0 100px 35px rgba(239, 68, 68, 0.75), inset 0 0 160px 50px rgba(249,115,22,0.45); }
-        75%  { opacity: 1.0; box-shadow: inset 0 0  80px 28px rgba(239, 68, 68, 0.65), inset 0 0 130px 40px rgba(249,115,22,0.35); }
-        100% { opacity: 0.0; box-shadow: inset 0 0  20px  6px rgba(239, 68, 68, 0.0),  inset 0 0  40px 12px rgba(249,115,22,0.0); }
-      }
-    </style>
   </head>
   <body>
     <div id="root"></div>
     <script type="module" src="/src/main.jsx"></script>
     <script>
-      if ('serviceWorker' in navigator) {
+      if (navigator.serviceWorker) {
         window.addEventListener('load', () => {
           navigator.serviceWorker.register('/sw.js').catch(() => {});
         });
