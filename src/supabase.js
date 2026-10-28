@@ -1,5 +1,6 @@
 import { createClient } from '@supabase/supabase-js';
 import { toLocalDateStr, todayStr } from './lib/date';
+import { cleanCoachText } from './lib/text';
 
 // The anon key is public by design (Supabase) – data protection relies on RLS policies.
 export const SUPABASE_URL = 'https://mmwrvpuwqumqvnymdtzc.supabase.co';
@@ -485,7 +486,7 @@ async function callFunction(name, payload, onDelta) {
     if (ev.type === 'delta') {
       acc += ev.text || '';
       // Hide a plan JSON block while it streams; the server strips it from the final reply.
-      if (onDelta) onDelta(acc.split('```')[0].trimEnd());
+      if (onDelta) onDelta(cleanCoachText(acc.split('```')[0]));
     } else if (ev.type === 'done') {
       result = ev;
     } else if (ev.type === 'error') {

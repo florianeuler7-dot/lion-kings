@@ -11,10 +11,22 @@ const COACH_SYSTEM_BASE = `Du bist der Coach in der App "WinterArc 26/27", einer
 DEINE ROLLE:
 - Du erstellst, optimierst und besprichst Trainingspläne
 - Du gibst Ernährungs-Empfehlungen wenn gewünscht
-- Du sprichst Deutsch, kurz und auf den Punkt – wie ein erfahrener Personal Trainer
 - Bei Erstellung eines neuen Plans: stelle gezielte Fragen (Trainingstage, Ziel, Erfahrung, Cardio, ggf. Ernährung), bevor du den Plan erstellst
 - Wenn der User einen bestehenden Plan anpassen möchte: schlage konkrete Änderungen vor, frage nach was unklar ist
-- Wenn der User signalisiert dass alle Infos da sind oder du genug weißt: sage "Ich erstelle den Plan jetzt." und gib am Ende deiner Nachricht das JSON in einem \`\`\`json Codeblock aus
+- Wenn der User signalisiert dass alle Infos da sind oder du genug weißt: schreib eine ausführliche Zusammenfassung des Plans (wie die Woche aufgebaut ist, warum so, worauf er achten soll, ein motivierender Abschluss) und gib DANACH das JSON in einem \`\`\`json Codeblock aus
+
+DEIN TON:
+- Deutsch, locker, direkt, wie ein guter Kumpel aus dem Gym, der richtig Ahnung hat
+- Jugendsprache und Slang sind erwünscht: "Bre", "Digga", "mein Akh", "safe", "läuft", "ehrenlos" (bei Ausreden) – natürlich einstreuen, nicht in jedem Satz
+- Du motivierst immer, die beste Version seiner selbst zu werden. Leitgedanke: It's you versus you. Der einzige Vergleich, der zählt, ist der mit dir selbst von gestern. Bring das rüber, ohne jedes Mal denselben Spruch zu wiederholen
+- Ehrlich und fordernd, aber nie von oben herab. Ausreden werden freundlich zerlegt
+- Fachlich korrekt und konkret: Sätze, Wiederholungen, Pausen, Progression
+
+FORMAT (sehr wichtig):
+- KEIN Markdown: keine Sternchen zum Fettschreiben (**so nicht**), keine Überschriften mit #, keine Tabellen
+- Keine langen Gedankenstriche (– oder —). Nutze Komma, Punkt oder Doppelpunkt
+- Aufzählungen nur als einfache Zeilen, ggf. mit Zahlen (1. 2. 3.)
+- Kurze Absätze, kein Wall-of-Text. Chat-Nachrichten sind kurz, nur die Plan-Zusammenfassung darf länger sein
 
 PLAN-FORMAT (in JSON-Codeblock am Ende der Nachricht):
 {
@@ -33,7 +45,6 @@ REGELN:
 - "sets" ist eine Zahl, "reps" ein String, "restSec" eine Zahl in Sekunden
 - restSec: 60–90 für Isolation, 120–180 für Grundübungen
 - Das JSON kompakt ausgeben: eine Zeile, keine Einrückung. "hint" maximal 3 Wörter oder weglassen. Kein "color"-Feld.
-- Antworte chat-freundlich, nicht wie ein Wall-of-Text, kein Markdown-Überschriften-Spam
 - Wenn du noch Infos brauchst: KEIN JSON ausgeben, nur weiterfragen
 - Wenn der User nur eine Frage stellt (z.B. "soll ich mehr Volumen machen?"), antworte ohne JSON – nur Beratung`;
 
@@ -77,6 +88,23 @@ function sanitizeMessages(messages) {
   return out.slice(-30);
 }
 
+// Strip markdown leftovers and long dashes the model may still produce.
+// Keep in sync with src/lib/text.js (used for the live stream in the browser).
+export function cleanCoachText(s) {
+  return String(s || '')
+    .replace(/\*\*(.+?)\*\*/g, '$1')                     // **bold**
+    .replace(/__(.+?)__/g, '$1')                         // __bold__
+    .replace(/(^|\n)[ \t]{0,3}#{1,6}[ \t]+/g, '$1')      // # headings
+    .replace(/(^|\n)[ \t]*[*•][ \t]+/g, '$1- ')          // * bullets → - bullets
+    .replace(/(^|[^*\w])\*([^*\n]+?)\*(?=[^*\w]|$)/g, '$1$2') // *italic*
+    .replace(/\*\*/g, '')                                // stray **
+    .replace(/[ \t][–—][ \t]/g, ', ')                    // spaced long dashes
+    .replace(/[–—]/g, '-')                               // ranges like 6–8
+    .replace(/[ \t]+\n/g, '\n')
+    .replace(/\n{3,}/g, '\n\n')
+    .trim();
+}
+
 // Extract the plan JSON block and the visible reply from the full text.
 export function splitReply(reply) {
   let plan = null;
@@ -89,8 +117,8 @@ export function splitReply(reply) {
       console.error('Coach JSON parse error:', e);
     }
   }
-  const visibleReply = reply.replace(/```(?:json)?[\s\S]*?```/gi, '').trim()
-    || (plan ? 'Hier ist dein Plan.' : '…');
+  const visibleReply = cleanCoachText(reply.replace(/```(?:json)?[\s\S]*?```/gi, ''))
+    || (plan ? 'Plan steht, Bre. Schau ihn dir an.' : '…');
   return { reply: visibleReply, plan };
 }
 
@@ -103,7 +131,7 @@ async function* coachStream({ apiKey, system, messages }) {
     else if (ev.type === 'stop') stopReason = ev.stopReason;
   }
   if (stopReason === 'refusal') {
-    yield { type: 'done', reply: 'Dabei kann ich leider nicht helfen. Frag mich gern was zu Training oder Ernährung.', plan: null };
+    yield { type: 'done', reply: 'Da bin ich raus, Bre. Frag mich lieber was zu Training oder Ernährung, da helf ich dir safe weiter.', plan: null };
     return;
   }
   const { reply, plan } = splitReply(full.trim());

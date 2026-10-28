@@ -9,6 +9,19 @@
 
 const RELEASE_NOTES = [
   {
+    version: "2.3.0",
+    date: "2026-10-28",
+    title: "Neuer Coach-Ton",
+    highlights: [
+      "Der Coach redet jetzt locker, direkt und motivierend. It's you versus you",
+      "Keine Markdown-Sternchen und langen Striche mehr im Chat",
+      "Plan-Zusammenfassung bleibt stehen, bis du selbst auf Ansehen tippst",
+      "Neues App-Icon: leuchtender Arc über ARC",
+    ],
+    thanks: null,
+    motto: "Beste Version von dir. Jeden Tag.",
+  },
+  {
     version: "2.2.0",
     date: "2026-10-28",
     title: "Konto & Import",

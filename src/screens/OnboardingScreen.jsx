@@ -182,10 +182,8 @@ export default function OnboardingScreen({ onComplete, authUser = null }) {
       const { reply, plan } = await coachChat(newMessages, null, true,
         partial => partial && setCoachMessages([...newMessages, { role: 'assistant', content: partial, partial: true }]));
       setCoachMessages([...newMessages, { role: 'assistant', content: reply }]);
-      if (plan) {
-        setParsedPlan(plan);
-        setTimeout(() => setStep('plan-review'), 800);
-      }
+      // Keep the coach's summary on screen; the user opens the plan via the banner when ready.
+      if (plan) setParsedPlan(plan);
     } catch (e) {
       console.error(e);
       setCoachMessages([...newMessages, { role: 'assistant', content: `Fehler (${e.message}) – nochmal versuchen.` }]);
@@ -198,7 +196,7 @@ export default function OnboardingScreen({ onComplete, authUser = null }) {
     if (step === 'plan-coach' && coachMessages.length === 0) {
       setCoachMessages([{
         role: 'assistant',
-        content: `Hi ${name}! Ich erstelle dir gerade deinen Trainingsplan für den Winter Arc. Sag mir kurz:\n\n1. Wie oft pro Woche willst du trainieren?\n2. Was ist dein Ziel? (Cut, Muskelaufbau, Maintainen, Athletik...)\n3. Wie viel Erfahrung hast du im Krafttraining?`,
+        content: `Yo ${name}, willkommen im Winter Arc. Ich bau dir jetzt deinen Plan, Bre. Sag mir kurz:\n\n1. Wie oft pro Woche willst du trainieren?\n2. Was ist dein Ziel? (Cut, Muskelaufbau, Maintainen, Athletik)\n3. Wie viel Erfahrung hast du im Krafttraining?\n\nKeine Ausreden, nur Antworten. It's you versus you.`,
       }]);
     }
   }, [step]);
@@ -241,7 +239,7 @@ export default function OnboardingScreen({ onComplete, authUser = null }) {
           {parsedPlan && (
             <div className="bg-ok/10 border border-ok/40 rounded-2xl p-3 mb-3 flex items-center gap-3 animate-fade-up">
               <Check className="w-5 h-5 text-ok shrink-0" aria-hidden="true" />
-              <div className="flex-1 text-sm text-fg">Plan ist fertig!</div>
+              <div className="flex-1 text-sm text-fg">Plan steht. Lies die Zusammenfassung, dann:</div>
               <Button variant="cta" size="sm" onClick={() => setStep('plan-review')}>Ansehen</Button>
             </div>
           )}
