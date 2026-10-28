@@ -7,7 +7,7 @@ import { Button, Dialog } from '../components/ui';
 
 const greeting = (name) => ({
   role: 'assistant',
-  content: `Hi ${name}! Ich bin dein Coach. Ich kenne deinen aktuellen Plan und kann dir helfen ihn anzupassen, neue Trainingsphasen zu starten, oder einfach Fragen beantworten.\n\nWas willst du machen?`,
+  content: `Yo ${name}, dein Coach hier. Ich kenn deinen Plan und bin am Start: Plan anpassen, neue Phase starten oder einfach Fragen klären.\n\nIt's you versus you, Bre. Was machen wir heute?`,
 });
 
 // ── Shared chat thread (coach tab + onboarding) ──────────────────────────────
