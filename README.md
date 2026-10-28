@@ -77,6 +77,21 @@ App-Icons neu erzeugen (nach Änderung an `public/icon.svg`): `npm run icons`.
 Die App wird über Netlify gebaut und ausgeliefert (`npm run build` → `dist/`).
 In den Netlify-Einstellungen muss die Umgebungsvariable `COACH_API_KEY` gesetzt sein.
 
+### Coach (Netlify Functions)
+
+Die Functions streamen die Antwort (NDJSON) – so läuft auch eine lange Plan-Antwort nicht
+ins Zeitlimit synchroner Functions. Gemeinsame Logik liegt in `netlify/functions/lib/anthropic.mjs`.
+
+| Variable               | Default             | Zweck                                                        |
+| ---------------------- | ------------------- | ------------------------------------------------------------ |
+| `COACH_API_KEY`        | –                   | Anthropic API-Key (Pflicht)                                  |
+| `COACH_MODEL`          | `claude-sonnet-5-5` | Hauptmodell                                                  |
+| `COACH_FALLBACK_MODEL` | `claude-sonnet-4-5` | Wird automatisch genutzt, wenn das Hauptmodell nicht antwortet (404/429/5xx) |
+
+**Coach antwortet nicht?** Die Chat-Blase zeigt den Grund in eckigen Klammern, z. B.
+`[claude-sonnet-5-5: model not found]` oder `API-Key ungültig`. Details stehen in Netlify
+unter *Logs → Functions → coach-chat*.
+
 Supabase-URL und Anon-Key stehen in `src/supabase.js`. Der Anon-Key ist öffentlich –
 Datenschutz hängt an den Row-Level-Security-Policies in Supabase.
 

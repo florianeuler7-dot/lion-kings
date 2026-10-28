@@ -64,9 +64,14 @@ const server = http.createServer(async (req, res) => {
 
   try {
     const webRes = await handler(webReq);
-    const resBody = await webRes.text();
-    res.writeHead(webRes.status, { 'Content-Type': 'application/json' });
-    res.end(resBody);
+    res.writeHead(webRes.status, {
+      'Content-Type': webRes.headers.get('content-type') || 'application/json',
+      'Cache-Control': 'no-cache',
+    });
+    if (!webRes.body) { res.end(); return; }
+    // Stream through (NDJSON from the coach) instead of buffering
+    for await (const chunk of webRes.body) res.write(chunk);
+    res.end();
   } catch (e) {
     console.error('Function error:', e);
     res.writeHead(500);

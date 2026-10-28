@@ -427,7 +427,26 @@ export async function getActivePlanForUser(userId) {
 // ===== AI BACKEND CALLS =====
 
 // Netlify may answer with an HTML error page (502/504) – never assume JSON.
-async function callFunction(name, payload) {
+// Builds a readable error from a function error payload. `detail` carries the
+// technical reason (e.g. the Anthropic error) so problems can be diagnosed from the chat.
+function functionError(status, data, text = '') {
+  // Netlify's own timeout/crash body: { errorType, errorMessage }
+  if (data.errorType || /task timed out/i.test(data.errorMessage || text)) {
+    return new Error(/timed out/i.test(data.errorMessage || text)
+      ? 'Der Coach hat zu lange gebraucht (Zeitlimit). Frag kürzer oder versuch es nochmal.'
+      : `Function-Fehler: ${data.errorMessage || data.errorType}`);
+  }
+  let msg = data.error || (status === 504 || status === 502
+    ? 'Coach antwortet nicht – nochmal versuchen.'
+    : `Fehler ${status}`);
+  if (data.detail) msg += ` [${String(data.detail).slice(0, 160)}]`;
+  return new Error(msg);
+}
+
+// Calls a Netlify function. Supports plain JSON responses and NDJSON streams
+// (one JSON object per line: start / delta / done / error). `onDelta` receives
+// the accumulated text so far for streaming UIs.
+async function callFunction(name, payload, onDelta) {
   let resp;
   try {
     resp = await fetch(`/.netlify/functions/${name}`, {
@@ -438,15 +457,53 @@ async function callFunction(name, payload) {
   } catch (e) {
     throw new Error('Keine Verbindung – bist du online?');
   }
-  const text = await resp.text();
-  let data = {};
-  try { data = text ? JSON.parse(text) : {}; } catch { data = {}; }
-  if (!resp.ok) {
-    throw new Error(data.error || (resp.status === 504 || resp.status === 502
-      ? 'Coach antwortet nicht – nochmal versuchen.'
-      : `Fehler ${resp.status}`));
+
+  const contentType = resp.headers.get('content-type') || '';
+  if (!resp.ok || !contentType.includes('ndjson') || !resp.body) {
+    const text = await resp.text();
+    let data = {};
+    try { data = text ? JSON.parse(text) : {}; } catch { data = {}; }
+    if (!resp.ok) throw functionError(resp.status, data, text);
+    if (data.error) throw functionError(500, data);
+    return data;
   }
-  return data;
+
+  const reader = resp.body.getReader();
+  const decoder = new TextDecoder();
+  let buf = '';
+  let acc = '';
+  let result = null;
+  const handle = (line) => {
+    if (!line.trim()) return;
+    let ev;
+    try { ev = JSON.parse(line); } catch { return; }
+    if (ev.type === 'delta') {
+      acc += ev.text || '';
+      // Hide a plan JSON block while it streams; the server strips it from the final reply.
+      if (onDelta) onDelta(acc.split('```')[0].trimEnd());
+    } else if (ev.type === 'done') {
+      result = ev;
+    } else if (ev.type === 'error') {
+      throw functionError(502, ev);
+    }
+  };
+  const read = async () => {
+    try { return await reader.read(); }
+    catch { throw new Error('Verbindung zum Coach abgebrochen – nochmal versuchen.'); }
+  };
+  while (true) {
+    const { value, done } = await read();
+    if (done) break;
+    buf += decoder.decode(value, { stream: true });
+    let idx;
+    while ((idx = buf.indexOf('\n')) >= 0) {
+      handle(buf.slice(0, idx));
+      buf = buf.slice(idx + 1);
+    }
+  }
+  if (buf.trim()) handle(buf);
+  if (!result) throw new Error('Coach-Antwort unvollständig – nochmal versuchen.');
+  return result;
 }
 
 export async function parsePlanText(text) {
@@ -455,8 +512,8 @@ export async function parsePlanText(text) {
   return data.plan;
 }
 
-export async function coachChat(messages, currentPlan = null, onboarding = false) {
+export async function coachChat(messages, currentPlan = null, onboarding = false, onDelta) {
   // Only send what the API needs
   const clean = messages.map(m => ({ role: m.role, content: String(m.content || '') }));
-  return callFunction('coach-chat', { messages: clean, currentPlan, onboarding }); // { reply, plan }
+  return callFunction('coach-chat', { messages: clean, currentPlan, onboarding }, onDelta); // { reply, plan }
 }
