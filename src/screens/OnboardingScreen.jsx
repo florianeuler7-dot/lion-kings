@@ -144,7 +144,8 @@ export default function OnboardingScreen({ onComplete }) {
     setCoachInput('');
     setBusy(true);
     try {
-      const { reply, plan } = await coachChat(newMessages, null, true);
+      const { reply, plan } = await coachChat(newMessages, null, true,
+        partial => partial && setCoachMessages([...newMessages, { role: 'assistant', content: partial, partial: true }]));
       setCoachMessages([...newMessages, { role: 'assistant', content: reply }]);
       if (plan) {
         setParsedPlan(plan);

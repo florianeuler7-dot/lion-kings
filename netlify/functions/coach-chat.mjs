@@ -1,7 +1,9 @@
 // Netlify Function: coach-chat
-// Returns a Claude response in the context of the WinterArc coaching system
+// Streams a Claude response (NDJSON) in the context of the WinterArc coaching system.
+// Lines: {type:'start'} → {type:'delta', text} … → {type:'done', reply, plan} | {type:'error', error, detail}
 
-const MODEL = 'claude-sonnet-5-5';
+import { getApiKey, streamClaude, ndjsonResponse, errorResponse, json } from './lib/anthropic.mjs';
+
 const PLAN_KEYS = ['push', 'pull', 'legs', 'aesthetic', 'cardio', 'rest'];
 
 const COACH_SYSTEM_BASE = `Du bist der Coach in der App "WinterArc 26/27", einer Trainings-App für eine kleine Crew von ambitionierten Sportlern.
@@ -16,12 +18,12 @@ DEINE ROLLE:
 
 PLAN-FORMAT (in JSON-Codeblock am Ende der Nachricht):
 {
-  "push": { "name": "Push", "color": "from-red-600 to-orange-600", "exercises": [{ "name": "...", "sets": 4, "reps": "6-8", "restSec": 150, "hint": "..." }] },
-  "pull": { "name": "Pull", "color": "from-red-600 to-rose-700", "exercises": [...] },
-  "legs": { "name": "Beine & Core", "color": "from-red-700 to-amber-700", "exercises": [...] },
-  "aesthetic": { "name": "Upper Aesthetic + KB", "color": "from-red-600 to-pink-700", "exercises": [...] },
-  "cardio": { "name": "Zone-2 Cardio + Mobility", "color": "from-emerald-600 to-teal-700", "exercises": [] },
-  "rest": { "name": "Pause", "color": "from-zinc-700 to-zinc-800", "exercises": [] },
+  "push": { "name": "Push", "exercises": [{ "name": "...", "sets": 4, "reps": "6-8", "restSec": 150, "hint": "..." }] },
+  "pull": { "name": "Pull", "exercises": [...] },
+  "legs": { "name": "Beine & Core", "exercises": [...] },
+  "aesthetic": { "name": "Upper Aesthetic + KB", "exercises": [...] },
+  "cardio": { "name": "Zone-2 Cardio + Mobility", "exercises": [] },
+  "rest": { "name": "Pause", "exercises": [] },
   "schedule": ["rest", "push", "pull", "rest", "legs", "aesthetic", "cardio"]
 }
 
@@ -30,6 +32,7 @@ REGELN:
 - Bei weniger als 4 Krafttagen: lasse nicht benötigte Blöcke (z.B. "aesthetic") einfach weg
 - "sets" ist eine Zahl, "reps" ein String, "restSec" eine Zahl in Sekunden
 - restSec: 60–90 für Isolation, 120–180 für Grundübungen
+- Das JSON kompakt ausgeben: eine Zeile, keine Einrückung. "hint" maximal 3 Wörter oder weglassen. Kein "color"-Feld.
 - Antworte chat-freundlich, nicht wie ein Wall-of-Text, kein Markdown-Überschriften-Spam
 - Wenn du noch Infos brauchst: KEIN JSON ausgeben, nur weiterfragen
 - Wenn der User nur eine Frage stellt (z.B. "soll ich mehr Volumen machen?"), antworte ohne JSON – nur Beratung`;
@@ -40,19 +43,21 @@ function buildSystemPrompt(currentPlan, onboarding) {
     prompt += `\n\nKONTEXT: Der User ist gerade im Onboarding und erstellt seinen ersten Plan. Frage gezielt nach Trainingstagen, Ziel, Erfahrung und Cardio-Präferenz – dann erstelle den Plan.`;
   }
   if (currentPlan && typeof currentPlan === 'object') {
-    // Only pass the keys the model is allowed to produce (strip app-internal "cardio_optional")
+    // Only pass the keys the model is allowed to produce (strip app-internal "cardio_optional"),
+    // and strip colors – the app assigns them itself.
     const slim = {};
-    for (const k of PLAN_KEYS) if (currentPlan[k]) slim[k] = currentPlan[k];
+    for (const k of PLAN_KEYS) {
+      if (!currentPlan[k]) continue;
+      const { color, ...rest } = currentPlan[k];
+      slim[k] = rest;
+    }
     if (Array.isArray(currentPlan.schedule)) {
       slim.schedule = currentPlan.schedule.map(k => (k === 'cardio_optional' ? 'cardio' : k));
     }
-    prompt += `\n\nAKTUELLER PLAN DES USERS:\n${JSON.stringify(slim, null, 2)}\n\nBerücksichtige diesen Plan bei deinen Antworten. Bei Plan-Änderungen: nur die nötigen Sachen anpassen, den Rest beibehalten.`;
+    prompt += `\n\nAKTUELLER PLAN DES USERS:\n${JSON.stringify(slim)}\n\nBerücksichtige diesen Plan bei deinen Antworten. Bei Plan-Änderungen: nur die nötigen Sachen anpassen, den Rest beibehalten.`;
   }
   return prompt;
 }
-
-const json = (body, status = 200) =>
-  new Response(JSON.stringify(body), { status, headers: { 'Content-Type': 'application/json' } });
 
 // Anthropic requires alternating roles starting with `user`.
 function sanitizeMessages(messages) {
@@ -68,7 +73,41 @@ function sanitizeMessages(messages) {
       out.push({ role: m.role, content });
     }
   }
-  return out;
+  // Keep the request small: the last 30 turns are plenty of context for a coach chat.
+  return out.slice(-30);
+}
+
+// Extract the plan JSON block and the visible reply from the full text.
+export function splitReply(reply) {
+  let plan = null;
+  const jsonMatch = reply.match(/```json\s*([\s\S]*?)```/i) || reply.match(/```\s*(\{[\s\S]*?\})\s*```/);
+  if (jsonMatch) {
+    try {
+      const parsed = JSON.parse(jsonMatch[1].trim());
+      if (parsed && typeof parsed === 'object') plan = parsed;
+    } catch (e) {
+      console.error('Coach JSON parse error:', e);
+    }
+  }
+  const visibleReply = reply.replace(/```(?:json)?[\s\S]*?```/gi, '').trim()
+    || (plan ? 'Hier ist dein Plan.' : '…');
+  return { reply: visibleReply, plan };
+}
+
+async function* coachStream({ apiKey, system, messages }) {
+  let full = '';
+  let stopReason = null;
+  for await (const ev of streamClaude({ apiKey, system, messages, maxTokens: 3000 })) {
+    if (ev.type === 'start') yield { type: 'start', model: ev.model };
+    else if (ev.type === 'text') { full += ev.text; yield { type: 'delta', text: ev.text }; }
+    else if (ev.type === 'stop') stopReason = ev.stopReason;
+  }
+  if (stopReason === 'refusal') {
+    yield { type: 'done', reply: 'Dabei kann ich leider nicht helfen. Frag mich gern was zu Training oder Ernährung.', plan: null };
+    return;
+  }
+  const { reply, plan } = splitReply(full.trim());
+  yield { type: 'done', reply, plan, truncated: stopReason === 'max_tokens' };
 }
 
 export default async (req) => {
@@ -76,8 +115,8 @@ export default async (req) => {
     return new Response('Method not allowed', { status: 405 });
   }
 
-  const apiKey = (process.env.COACH_API_KEY || (globalThis.Netlify?.env?.get('COACH_API_KEY')) || '').trim();
-  if (!apiKey) return json({ error: 'API key not configured' }, 500);
+  const apiKey = getApiKey();
+  if (!apiKey) return json({ error: 'API-Key nicht konfiguriert (Netlify: COACH_API_KEY).' }, 500);
 
   try {
     const { messages, currentPlan, onboarding } = await req.json();
@@ -87,74 +126,9 @@ export default async (req) => {
     const cleanMessages = sanitizeMessages(messages);
     if (cleanMessages.length === 0) return json({ error: 'Keine Nachricht übergeben' }, 400);
 
-    const controller = new AbortController();
-    const timeout = setTimeout(() => controller.abort(), 25000);
-    let anthropicResp;
-    try {
-      anthropicResp = await fetch('https://api.anthropic.com/v1/messages', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'x-api-key': apiKey,
-          'anthropic-version': '2023-06-01',
-        },
-        body: JSON.stringify({
-          model: MODEL,
-          max_tokens: 4096,
-          // Chat use case: keep latency low
-          output_config: { effort: 'low' },
-          system: buildSystemPrompt(currentPlan, onboarding),
-          messages: cleanMessages,
-        }),
-        signal: controller.signal,
-      });
-    } catch (e) {
-      if (e.name === 'AbortError') {
-        return json({ error: 'Coach antwortet nicht – nochmal versuchen.' }, 504);
-      }
-      throw e;
-    } finally {
-      clearTimeout(timeout);
-    }
-
-    if (!anthropicResp.ok) {
-      const errText = await anthropicResp.text();
-      console.error('Anthropic error:', errText);
-      return json({ error: 'Coach gerade nicht erreichbar.', detail: errText }, 502);
-    }
-
-    const data = await anthropicResp.json();
-
-    if (data.stop_reason === 'refusal') {
-      return json({ reply: 'Dabei kann ich leider nicht helfen. Frag mich gern was zu Training oder Ernährung.', plan: null });
-    }
-
-    // Response may contain thinking blocks before the text block – find the text explicitly.
-    const reply = (data.content || [])
-      .filter(b => b.type === 'text')
-      .map(b => b.text)
-      .join('\n')
-      .trim();
-
-    // Detect if the reply contains a finished plan (JSON in code block)
-    let plan = null;
-    const jsonMatch = reply.match(/```json\s*([\s\S]*?)```/i);
-    if (jsonMatch) {
-      try {
-        const parsed = JSON.parse(jsonMatch[1].trim());
-        if (parsed && typeof parsed === 'object') plan = parsed;
-      } catch (e) {
-        console.error('Coach JSON parse error:', e);
-      }
-    }
-
-    // Strip the JSON block from the visible reply
-    const visibleReply = reply.replace(/```json[\s\S]*?```/gi, '').trim()
-      || (plan ? 'Hier ist dein Plan.' : '…');
-
-    return json({ reply: visibleReply, plan });
+    const system = buildSystemPrompt(currentPlan, onboarding);
+    return await ndjsonResponse(coachStream({ apiKey, system, messages: cleanMessages }));
   } catch (e) {
-    console.error('Function error:', e);
-    return json({ error: e.message }, 500);
+    return errorResponse(e);
   }
 };

@@ -16,6 +16,9 @@ export function ChatThread({ messages, busy, className = '' }) {
   useEffect(() => {
     if (scrollRef.current) scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
   }, [messages, busy]);
+  // While an answer streams in, the partial bubble replaces the typing indicator.
+  const last = messages[messages.length - 1];
+  const showTyping = busy && !(last?.partial && last.content);
 
   return (
     <div ref={scrollRef} className={`overflow-y-auto space-y-3 ${className}`}>
@@ -30,7 +33,7 @@ export function ChatThread({ messages, busy, className = '' }) {
           </div>
         </div>
       ))}
-      {busy && (
+      {showTyping && (
         <div className="flex justify-start">
           <div className="bg-surface-2 border border-line rounded-3xl rounded-bl-md px-4 py-3 flex gap-1 items-center">
             {[0, 1, 2].map(i => (
@@ -178,7 +181,8 @@ export default function CoachScreen({ user, currentPlan, currentSchedule, onPlan
     setBusy(true);
     try {
       const planWithSchedule = { ...currentPlan, schedule: currentSchedule };
-      const { reply, plan } = await coachChat(next, planWithSchedule);
+      const { reply, plan } = await coachChat(next, planWithSchedule, false,
+        partial => partial && setMessages([...next, { role: 'assistant', content: partial, partial: true }]));
       setMessages([...next, { role: 'assistant', content: reply }]);
       if (plan) setProposedPlan(plan);
     } catch (e) {

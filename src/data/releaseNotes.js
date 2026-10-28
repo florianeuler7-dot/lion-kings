@@ -9,6 +9,18 @@
 
 const RELEASE_NOTES = [
   {
+    version: "2.1.1",
+    date: "2026-10-28",
+    title: "Coach repariert",
+    highlights: [
+      "Der Coach antwortet wieder – Antworten erscheinen jetzt Wort für Wort",
+      "Lange Plan-Antworten laufen nicht mehr ins Zeitlimit",
+      "Wenn etwas schiefgeht, steht der Grund direkt im Chat",
+    ],
+    thanks: null,
+    motto: "Tag 2. Weiter geht's.",
+  },
+  {
     version: "2.1.0",
     date: "2026-10-26",
     title: "Game on",

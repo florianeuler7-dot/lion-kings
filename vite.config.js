@@ -22,4 +22,12 @@ export default defineConfig({
       },
     },
   },
+  preview: {
+    proxy: {
+      '/.netlify/functions': {
+        target: 'http://localhost:8889',
+        changeOrigin: true,
+      },
+    },
+  },
 })
