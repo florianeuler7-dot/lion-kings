@@ -203,6 +203,17 @@ export default function OnboardingScreen({ onComplete, authUser = null }) {
     }
   }, [step]);
 
+  // Wrong person / stale progress from an earlier visit → start over at the login step
+  const restart = () => {
+    clear();
+    setNameRaw('');
+    setParsedPlanRaw(null);
+    setCoachMessagesRaw([]);
+    setPlanTextRaw('');
+    setError('');
+    setStepRaw('account');
+  };
+
   const confirmExisting = () => {
     if (auth) linkAccount(foundUser.id).catch(e => console.error('Account link failed:', e));
     clear();
@@ -295,6 +306,11 @@ export default function OnboardingScreen({ onComplete, authUser = null }) {
                 : <>Dein Name wird auf diesem Gerät gespeichert.<br /></>}
               Deine Crew sieht deine Trainings im Dashboard.
             </div>
+            {!auth && (
+              <button onClick={restart} className="mt-4 w-full text-accent text-sm font-bold min-h-[44px]">
+                Schon ein Konto? Einloggen
+              </button>
+            )}
           </div>
         )}
 
@@ -359,6 +375,9 @@ export default function OnboardingScreen({ onComplete, authUser = null }) {
             <ErrorText className="mt-4">{error}</ErrorText>
 
             <div className="mt-6 text-fg-faint text-xs text-center">Du kannst den Plan später jederzeit ändern.</div>
+            <button onClick={restart} disabled={busy} className="mt-3 w-full text-fg-muted hover:text-fg text-sm font-bold min-h-[44px]">
+              Nicht {name}? Neu starten / Einloggen
+            </button>
           </div>
         )}
 

@@ -31,8 +31,19 @@
     <script type="module" src="/src/main.jsx"></script>
     <script>
       if (navigator.serviceWorker) {
+        // A device that still runs an old service worker shows the stale, cached app once.
+        // When the new worker takes over, reload so the fresh version appears right away.
+        const hadController = !!navigator.serviceWorker.controller;
+        let refreshing = false;
+        navigator.serviceWorker.addEventListener('controllerchange', () => {
+          if (!hadController || refreshing) return;
+          refreshing = true;
+          location.reload();
+        });
         window.addEventListener('load', () => {
-          navigator.serviceWorker.register('/sw.js').catch(() => {});
+          navigator.serviceWorker.register('/sw.js')
+            .then(reg => reg.update().catch(() => {}))
+            .catch(() => {});
         });
       }
     </script>
