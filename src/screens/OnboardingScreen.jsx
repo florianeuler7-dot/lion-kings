@@ -2,8 +2,10 @@ import React, { useEffect, useState } from 'react';
 import { Check, Camera, User, X, Dumbbell, StickyNote, Sparkles } from 'lucide-react';
 import Avatar from '../components/Avatar';
 import { Button, ListRow, ErrorText, Card, Wordmark } from '../components/ui';
-import { findUserByName, getLastWorkoutDate, createUser, uploadAvatar, updateUserAvatar, saveUserPlan, parsePlanText, coachChat } from '../supabase';
+import { findUserByName, getLastWorkoutDate, getUserById, createUser, uploadAvatar, updateUserAvatar, saveUserPlan, parsePlanText, coachChat } from '../supabase';
 import { readJSON, writeJSON, removeKey } from '../lib/session';
+import { linkedUserId, linkAccount } from '../lib/auth';
+import { AuthForm } from '../components/AccountSheet';
 import { ChatThread, ChatInput, PlanReview } from './CoachScreen';
 
 // ===== ONBOARDING =====
@@ -15,10 +17,14 @@ const clear = () => removeKey(ONBOARDING_KEY);
 // Steps that need in-memory state we don't persist (foundUser) must restart at 'name'
 const RESUMABLE_STEPS = new Set(['name', 'avatar', 'plan', 'plan-text', 'plan-coach', 'plan-review']);
 
-export default function OnboardingScreen({ onComplete }) {
+// `authUser`: an account that is already logged in on this device but has no profile yet.
+export default function OnboardingScreen({ onComplete, authUser = null }) {
   const saved = load();
-  const initialStep = RESUMABLE_STEPS.has(saved.step) && (saved.step === 'name' || saved.name) ? saved.step : 'name';
+  const resumable = RESUMABLE_STEPS.has(saved.step) && (saved.step === 'name' || saved.name);
+  const initialStep = resumable ? saved.step : (authUser ? 'name' : 'account');
   const [step, setStepRaw] = useState(initialStep);
+  const [localAuth, setLocalAuth] = useState(null);
+  const auth = authUser || localAuth;
   const [name, setNameRaw] = useState(saved.name || '');
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
@@ -42,6 +48,31 @@ export default function OnboardingScreen({ onComplete }) {
   useEffect(() => {
     if (step === 'plan-review' && !parsedPlan) setStep('plan');
   }, []);
+
+  // After login/registration: jump straight to the linked profile, otherwise create one.
+  const afterAuth = async (u) => {
+    setLocalAuth(u);
+    const linked = linkedUserId(u);
+    if (linked) {
+      setBusy(true);
+      try {
+        const row = await getUserById(linked);
+        if (row) { clear(); onComplete(row); return; }
+      } catch (e) {
+        console.error(e);
+        setError('Profil konnte nicht geladen werden – nochmal versuchen.');
+        setBusy(false);
+        return;
+      }
+      setBusy(false);
+    }
+    setStep('name');
+  };
+
+  // A confirmation / login happened elsewhere (e-mail link, another tab) while we sat on the account step
+  useEffect(() => {
+    if (step === 'account' && authUser) afterAuth(authUser);
+  }, [authUser?.id]);
 
   const handleNameSubmit = async () => {
     const trimmed = name.trim();
@@ -91,6 +122,10 @@ export default function OnboardingScreen({ onComplete }) {
         return;
       }
       const newUser = await createUser(name.trim(), null);
+
+      if (auth) {
+        try { await linkAccount(newUser.id); } catch (e) { console.error('Account link failed:', e); }
+      }
 
       if (avatarFile) {
         try {
@@ -168,7 +203,11 @@ export default function OnboardingScreen({ onComplete }) {
     }
   }, [step]);
 
-  const confirmExisting = () => { clear(); onComplete(foundUser); };
+  const confirmExisting = () => {
+    if (auth) linkAccount(foundUser.id).catch(e => console.error('Account link failed:', e));
+    clear();
+    onComplete(foundUser);
+  };
   const reject = () => {
     setFoundUser(null);
     setLastWorkout(null);
@@ -195,7 +234,7 @@ export default function OnboardingScreen({ onComplete }) {
               <Button variant="cta" size="sm" onClick={() => setStep('plan-review')}>Ansehen</Button>
             </div>
           )}
-          <ChatInput value={coachInput} onChange={setCoachInput} onSend={handleCoachSend} busy={busy} placeholder="Antwort… (Shift+Enter = Absatz)" />
+          <ChatInput value={coachInput} onChange={setCoachInput} onSend={handleCoachSend} busy={busy} placeholder="Antwort…" />
           <div className="h-4 shrink-0" />
         </div>
       </div>
@@ -209,6 +248,25 @@ export default function OnboardingScreen({ onComplete }) {
           <div className="label mb-3">Willkommen beim</div>
           <Wordmark size="xl" />
         </div>
+
+        {step === 'account' && (
+          <div className="animate-fade-up">
+            <div className="mb-5">
+              <div className="label mb-2">Konto</div>
+              <div className="font-display text-4xl uppercase text-fg leading-none mb-2">Einloggen</div>
+              <div className="text-sm text-fg-muted">
+                Mit E-Mail und Passwort bist du auf Handy und Laptop beim selben Profil.
+              </div>
+            </div>
+            <AuthForm initialMode="login" onAuthed={afterAuth} idPrefix="onb" />
+            <ErrorText className="mt-3">{error}</ErrorText>
+            <div className="mt-6 pt-5 border-t border-line">
+              <Button variant="ghost" size="md" className="w-full" onClick={() => setStep('name')} disabled={busy}>
+                Ohne Konto weiter (nur dieses Gerät)
+              </Button>
+            </div>
+          </div>
+        )}
 
         {step === 'name' && (
           <div className="animate-fade-up">
@@ -232,7 +290,9 @@ export default function OnboardingScreen({ onComplete }) {
               {busy ? 'Moment…' : 'Weiter'}
             </Button>
             <div className="mt-8 text-fg-muted text-sm text-center leading-relaxed">
-              Dein Name wird auf diesem Gerät gespeichert.<br />
+              {auth
+                ? <>Dein Profil wird mit <span className="text-fg">{auth.email}</span> verknüpft.<br /></>
+                : <>Dein Name wird auf diesem Gerät gespeichert.<br /></>}
               Deine Crew sieht deine Trainings im Dashboard.
             </div>
           </div>

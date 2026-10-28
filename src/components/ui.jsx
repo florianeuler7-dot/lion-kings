@@ -1,4 +1,5 @@
 import React from 'react';
+import { createPortal } from 'react-dom';
 import { ChevronRight, AlertCircle, Trophy } from 'lucide-react';
 import { ARC } from '../data/arc';
 
@@ -248,8 +249,10 @@ export function ProgressBar({ value = 0, color = 'bg-accent', className = '', la
 }
 
 // ── Modal (bottom sheet on mobile) ───────────────────────────────────────────
+// Overlays are portaled to <body>: screens animate in with a transform (stacking
+// context), so a z-50 overlay inside them would otherwise end up below the fixed nav.
 export function Sheet({ onClose, children, className = '', title }) {
-  return (
+  return createPortal(
     <div className="fixed inset-0 z-50 flex items-end sm:items-center sm:justify-center bg-black/70 animate-fade-in" onClick={onClose}>
       <div
         role="dialog" aria-modal="true" aria-label={title}
@@ -259,19 +262,21 @@ export function Sheet({ onClose, children, className = '', title }) {
         <div className="mx-auto w-10 h-1 rounded-full bg-line-2 mb-5 sm:hidden" aria-hidden="true" />
         {children}
       </div>
-    </div>
+    </div>,
+    document.body,
   );
 }
 
 export function Dialog({ title, text, children, className = '' }) {
-  return (
+  return createPortal(
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/75 p-6 animate-fade-in">
       <div role="alertdialog" aria-modal="true" aria-label={title} className={`card p-6 w-full max-w-sm animate-pop ${className}`}>
         {title && <div className="font-display text-3xl uppercase text-fg leading-none mb-2">{title}</div>}
         {text && <div className="text-sm text-fg-muted mb-5">{text}</div>}
         {children}
       </div>
-    </div>
+    </div>,
+    document.body,
   );
 }
 

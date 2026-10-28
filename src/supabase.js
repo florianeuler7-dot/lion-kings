@@ -2,10 +2,15 @@ import { createClient } from '@supabase/supabase-js';
 import { toLocalDateStr, todayStr } from './lib/date';
 
 // The anon key is public by design (Supabase) – data protection relies on RLS policies.
-const SUPABASE_URL = 'https://mmwrvpuwqumqvnymdtzc.supabase.co';
-const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im1td3J2cHV3cXVtcXZueW1kdHpjIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzcxMTUxMjYsImV4cCI6MjA5MjY5MTEyNn0.thsgc-resNiw14npwk4M12lxBlgmzYt01JHaafaysik';
+export const SUPABASE_URL = 'https://mmwrvpuwqumqvnymdtzc.supabase.co';
+export const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im1td3J2cHV3cXVtcXZueW1kdHpjIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzcxMTUxMjYsImV4cCI6MjA5MjY5MTEyNn0.thsgc-resNiw14npwk4M12lxBlgmzYt01JHaafaysik';
 
-export const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+// Data client. It never carries a login (persistSession: false), so all table access keeps
+// running as `anon` exactly as before – the account login (src/lib/auth.js) is a separate
+// client and only serves as the identity that links a device to a users row.
+export const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
+  auth: { persistSession: false, autoRefreshToken: false, detectSessionInUrl: false },
+});
 
 // ===== USERS =====
 

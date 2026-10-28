@@ -1,10 +1,74 @@
 import React, { useState } from 'react';
-import { ChevronRight, Heart, Sparkles } from 'lucide-react';
-import { ScreenHeader, Card, SectionLabel, Button } from '../components/ui';
+import { ChevronRight, Heart, Sparkles, FileText } from 'lucide-react';
+import { ScreenHeader, Card, SectionLabel, Button, Sheet, ErrorText } from '../components/ui';
 import { DAY_SHORT, STRENGTH_KEYS } from '../data/plan';
+import { parsePlanText } from '../supabase';
+import { PlanReview } from './CoachScreen';
 
-export default function PlanScreen({ plan: PLAN, schedule, onOpenCoach }) {
+// Paste an existing plan as free text → coach structures it → review → save
+function ImportSheet({ onClose, onPlanSaved }) {
+  const [text, setText] = useState('');
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState('');
+  const [parsed, setParsed] = useState(null);
+
+  const parse = async () => {
+    if (text.trim().length < 30) { setError('Plan zu kurz – beschreibe ihn etwas detaillierter.'); return; }
+    setBusy(true); setError('');
+    try {
+      setParsed(await parsePlanText(text));
+    } catch (e) {
+      console.error(e);
+      setError(e.message || 'Plan konnte nicht verarbeitet werden.');
+    }
+    setBusy(false);
+  };
+
+  const confirm = async () => {
+    setBusy(true);
+    try {
+      await onPlanSaved(parsed); // navigates + toasts; throws on failure
+      onClose();
+    } catch (e) { /* toast shown by caller, keep the sheet open */ }
+    setBusy(false);
+  };
+
+  return (
+    <Sheet onClose={busy ? undefined : onClose} title="Plan importieren" className="max-h-[92vh] overflow-y-auto">
+      {parsed ? (
+        <PlanReview plan={parsed} onConfirm={confirm} onBack={() => setParsed(null)} busy={busy} />
+      ) : (
+        <>
+          <div className="label mb-1">Import</div>
+          <div className="font-display text-3xl uppercase text-fg leading-none mb-2">Plan als Text</div>
+          <div className="text-sm text-fg-muted mb-4">
+            Bestehenden Plan einfügen – Übungen, Sätze, Wiederholungen, gern mit Wochentagen. Der Coach strukturiert ihn.
+          </div>
+          <label htmlFor="plan-import-text" className="sr-only">Plan als Text</label>
+          <textarea
+            id="plan-import-text"
+            value={text}
+            onChange={e => setText(e.target.value)}
+            placeholder={`z.B.\n\nMo: Push\nBankdrücken 4x6-8\nSchulterdrücken 3x8\n\nDi: Pull\n...`}
+            rows={8}
+            autoFocus
+            disabled={busy}
+            className="input-field px-4 py-3 text-sm mb-3 font-mono"
+          />
+          <ErrorText className="mb-3">{error}</ErrorText>
+          <Button className="w-full mb-2" onClick={parse} disabled={busy || text.trim().length < 30}>
+            {busy ? 'Coach liest…' : 'Plan verarbeiten'}
+          </Button>
+          <Button variant="ghost" size="md" className="w-full" onClick={onClose} disabled={busy}>Abbrechen</Button>
+        </>
+      )}
+    </Sheet>
+  );
+}
+
+export default function PlanScreen({ plan: PLAN, schedule, onOpenCoach, onPlanSaved }) {
   const [open, setOpen] = useState(null);
+  const [importOpen, setImportOpen] = useState(false);
   const todayDow = new Date().getDay();
   const strengthKeys = STRENGTH_KEYS.filter(k => PLAN[k]?.exercises?.length > 0);
   const weekOrder = [1, 2, 3, 4, 5, 6, 0];
@@ -98,11 +162,20 @@ export default function PlanScreen({ plan: PLAN, schedule, onOpenCoach }) {
         </div>
       </Card>
 
-      {onOpenCoach && (
-        <Button variant="secondary" size="md" className="w-full" icon={Sparkles} onClick={onOpenCoach}>
-          Plan mit dem Coach anpassen
-        </Button>
-      )}
+      <div className="space-y-2">
+        {onOpenCoach && (
+          <Button variant="secondary" size="md" className="w-full" icon={Sparkles} onClick={onOpenCoach}>
+            Plan mit dem Coach anpassen
+          </Button>
+        )}
+        {onPlanSaved && (
+          <Button variant="ghost" size="md" className="w-full" icon={FileText} onClick={() => setImportOpen(true)}>
+            Bestehenden Plan als Text importieren
+          </Button>
+        )}
+      </div>
+
+      {importOpen && <ImportSheet onClose={() => setImportOpen(false)} onPlanSaved={onPlanSaved} />}
     </div>
   );
 }

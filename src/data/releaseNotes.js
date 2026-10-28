@@ -9,6 +9,18 @@
 
 const RELEASE_NOTES = [
   {
+    version: "2.2.0",
+    date: "2026-10-28",
+    title: "Konto & Import",
+    highlights: [
+      "Konto mit E-Mail und Passwort: auf Handy und Laptop beim selben Profil einloggen",
+      "Chat: Enter macht eine neue Zeile, Senden per Button oder Strg+Enter",
+      "Plan-Tab: bestehenden Plan als Text importieren",
+    ],
+    thanks: null,
+    motto: "Ein Profil. Alle Geräte.",
+  },
+  {
     version: "2.1.1",
     date: "2026-10-28",
     title: "Coach repariert",
