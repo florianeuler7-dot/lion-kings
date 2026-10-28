@@ -95,6 +95,23 @@ unter *Logs → Functions → coach-chat*.
 Supabase-URL und Anon-Key stehen in `src/supabase.js`. Der Anon-Key ist öffentlich –
 Datenschutz hängt an den Row-Level-Security-Policies in Supabase.
 
+### Konto-Login (mehrere Geräte)
+
+Optional kann sich jeder ein Konto (E-Mail + Passwort) anlegen – über Supabase Auth. Das Konto
+ist nur eine Identität: welches Profil (`users`-Zeile) dazugehört, steht in den Auth-Metadaten
+(`app_user_id`). Keine zusätzliche Tabelle, keine Migration. Die Datenzugriffe laufen weiter
+über den anonymen Client (`src/supabase.js`), der Login-Client steckt in `src/lib/auth.js`.
+
+Einmalig im Supabase-Dashboard unter **Authentication**:
+
+1. *Providers → Email*: aktiviert lassen. **„Confirm email“ ausschalten** – sonst muss jeder
+   erst einen Link in der Mail klicken (funktioniert auch, ist aber ein Schritt mehr).
+2. *URL Configuration → Site URL*: `https://noxcuse.netlify.app` – dahin führen Bestätigungs-
+   und Passwort-zurücksetzen-Links.
+
+Ablauf: Auf dem ersten Gerät unter *Home → Schlüssel-Icon* „Konto anlegen“, auf dem zweiten
+Gerät beim Start einloggen – man landet direkt im eigenen Profil.
+
 **Supabase pausiert?** Kostenlose Projekte werden nach einer Woche ohne Nutzung angehalten.
 Die App zeigt dann auf dem Home-Screen ein rotes Banner. Im Supabase-Dashboard
 „Restore project“ klicken.
@@ -117,7 +134,8 @@ Storage-Bucket `avatars`. Felder siehe `src/supabase.js`.
 ## Plan anpassen
 
 Der Default-Plan steht in `src/data/plan.js`. Eigene Pläne werden pro Nutzer in
-`users.plan_data` gespeichert und können jederzeit über den Coach geändert werden.
+`users.plan_data` gespeichert und können jederzeit über den Coach geändert oder im Plan-Tab
+als Freitext importiert werden („Bestehenden Plan als Text importieren“).
 
 ## Release Notes
 

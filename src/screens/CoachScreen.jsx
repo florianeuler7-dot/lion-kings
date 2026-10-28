@@ -54,7 +54,8 @@ export function ChatInput({ value, onChange, onSend, busy, placeholder = 'Frag d
         value={value}
         onChange={e => onChange(e.target.value)}
         onKeyDown={e => {
-          if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); onSend(); }
+          // Enter = new line; Ctrl/Cmd+Enter sends (so multi-line messages work on a laptop)
+          if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) { e.preventDefault(); onSend(); }
         }}
         placeholder={placeholder}
         disabled={busy}
@@ -63,7 +64,7 @@ export function ChatInput({ value, onChange, onSend, busy, placeholder = 'Frag d
         onInput={e => { e.target.style.height = 'auto'; e.target.style.height = Math.min(120, e.target.scrollHeight) + 'px'; }}
         className="input-field px-4 py-3 text-sm rounded-3xl"
       />
-      <button onClick={onSend} disabled={busy || !value.trim()} aria-label="Senden"
+      <button onClick={onSend} disabled={busy || !value.trim()} aria-label="Senden" title="Senden (Strg+Enter)"
         className="pressable w-12 h-12 shrink-0 btn-primary rounded-full flex items-center justify-center disabled:opacity-40 disabled:shadow-none">
         <Send className="w-5 h-5" />
       </button>

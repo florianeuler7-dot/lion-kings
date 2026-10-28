@@ -4,8 +4,10 @@ import { getUserById, getUserWorkouts, saveWorkout, rowToWorkout, computeLastWei
 import { buildPlanData, DAY_NAMES } from './data/plan';
 import { MOBILITY } from './data/mobility';
 import { session } from './lib/session';
+import { getAuthUser, linkedUserId, linkAccount, onAuthChange, signOut } from './lib/auth';
 import { ToastProvider, useToast } from './components/Toast';
 import { Wordmark } from './components/ui';
+import { AccountSheet, NewPasswordSheet } from './components/AccountSheet';
 import HomeScreen, { CustomWorkoutModal } from './screens/HomeScreen';
 import WorkoutScreen from './screens/WorkoutScreen';
 import HistoryScreen from './screens/HistoryScreen';
@@ -70,23 +72,37 @@ function Shell() {
   const PLAN = planConfig.plan;
   const DAY_MAP = planConfig.schedule;
 
+  // Account login (optional) – the profile it points to wins over the device-local identity
+  const [authUser, setAuthUser] = useState(null);
+  const [accountOpen, setAccountOpen] = useState(false);
+  const [passwordRecovery, setPasswordRecovery] = useState(false);
+  useEffect(() => onAuthChange((event, u) => {
+    setAuthUser(u);
+    if (event === 'PASSWORD_RECOVERY') setPasswordRecovery(true);
+  }), []);
+
   // Load user identity on mount
   useEffect(() => {
     (async () => {
+      let au = null;
+      try { au = await getAuthUser(); } catch (e) { console.error('Auth session error:', e); }
+      setAuthUser(au);
+      const linkedId = linkedUserId(au);
       const stored = session.getUser();
-      if (stored?.id) {
+      const idToLoad = linkedId || stored?.id;
+      if (idToLoad) {
         try {
-          const dbUser = await getUserById(stored.id);
+          const dbUser = await getUserById(idToLoad);
           if (dbUser) {
             setUser(dbUser);
             session.setUser(dbUser);
           } else {
-            session.clear();
+            session.clear(); // profile gone → onboarding (keeps the login, creates a new profile)
           }
         } catch (e) {
           // Offline / network error → keep the cached identity so the app still opens
           console.error('User load error:', e);
-          setUser(stored);
+          if (stored) setUser(stored);
         }
       }
       setAuthLoading(false);
@@ -94,6 +110,30 @@ function Shell() {
       setTimeout(() => setSplashVisible(false), 650);
     })();
   }, []);
+
+  // Login from the account sheet: attach this profile, or switch to the profile the account already has
+  const handleAccountAuthed = async (au) => {
+    setAuthUser(au);
+    const linked = linkedUserId(au);
+    try {
+      if (linked && linked !== user.id) {
+        const other = await getUserById(linked);
+        if (other) {
+          session.setUser(other);
+          setUser(other);
+          setAccountOpen(false);
+          showToast(`Eingeloggt als ${other.name}`, 'check');
+          return;
+        }
+      }
+      if (linked !== user.id) await linkAccount(user.id);
+      setAccountOpen(false);
+      showToast('Konto verknüpft – du kannst dich jetzt überall einloggen', 'check', 5000);
+    } catch (e) {
+      console.error('Account link error:', e);
+      showToast(`Konto konnte nicht verknüpft werden: ${describeError(e)}`, 'error', 8000);
+    }
+  };
 
   // Clear live status when the tab/app closes
   useEffect(() => {
@@ -146,6 +186,8 @@ function Shell() {
   const handleLogout = () => {
     if (user) clearLiveStatus(user.id);
     session.clear();
+    signOut();
+    setAuthUser(null);
     setUser(null);
     setHistory([]);
     setLastWeights({});
@@ -384,7 +426,12 @@ function Shell() {
   if (authLoading) return <Splash fading={splashFading} />;
 
   if (!user) {
-    return <OnboardingScreen onComplete={handleOnboarded} />;
+    return (
+      <>
+        <OnboardingScreen onComplete={handleOnboarded} authUser={authUser} />
+        {passwordRecovery && <NewPasswordSheet onDone={(ok) => { setPasswordRecovery(false); if (ok) showToast('Passwort gespeichert', 'check'); }} />}
+      </>
+    );
   }
 
   const optionalDays = new Set(DAY_MAP.map((v, i) => (v === 'rest' || v === 'cardio_optional' ? i : -1)).filter(i => i >= 0));
@@ -399,12 +446,16 @@ function Shell() {
       {workoutComplete && (
         <WorkoutCompleteModal data={workoutComplete} onClose={saveCompletedWorkout} history={history} streak={computeUserStats(history, optionalDays).streak} />
       )}
+      {accountOpen && <AccountSheet user={user} authUser={authUser} onClose={() => setAccountOpen(false)} onAuthed={handleAccountAuthed} />}
+      {passwordRecovery && <NewPasswordSheet onDone={(ok) => { setPasswordRecovery(false); if (ok) showToast('Passwort gespeichert', 'check'); }} />}
 
       {/* No z-index here on purpose: overlays inside (sheets, dialogs) must stack above the nav */}
       <main className={`max-w-2xl mx-auto px-4 ${fullscreen ? 'pb-8' : 'pb-28'}`}>
         {screen === 'home' && (
           <HomeScreen
             user={user}
+            authEmail={authUser?.email || null}
+            onOpenAccount={() => setAccountOpen(true)}
             onLogout={handleLogout}
             onChangeAvatar={triggerAvatarChange}
             plan={PLAN}
@@ -437,7 +488,7 @@ function Shell() {
           />
         )}
         {screen === 'history' && <HistoryScreen history={history} onDelete={handleDeleteWorkout} />}
-        {screen === 'plan' && <PlanScreen plan={PLAN} schedule={DAY_MAP} onOpenCoach={() => setScreen('coach')} />}
+        {screen === 'plan' && <PlanScreen plan={PLAN} schedule={DAY_MAP} onOpenCoach={() => setScreen('coach')} onPlanSaved={handlePlanSaved} />}
         {screen === 'dashboard' && <DashboardScreen user={user} optionalDays={optionalDays} />}
         {screen === 'coach' && <CoachScreen user={user} currentPlan={PLAN} currentSchedule={DAY_MAP} onPlanSaved={handlePlanSaved} showToast={showToast} />}
         {screen === 'cardio' && <CardioScreen onFinish={finishCardio} onCancel={cancelActivity} showToast={showToast} user={user} combinedFlow={combinedFlow} />}

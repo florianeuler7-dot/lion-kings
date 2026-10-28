@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { Dumbbell, Play, Check, ChevronDown, Flame, Heart, Activity, Plus, Camera, LogOut, X, Droplets, Footprints, Salad, Snowflake, AlertTriangle, Target, CalendarCheck, Zap, Award } from 'lucide-react';
+import { Dumbbell, Play, Check, ChevronDown, Flame, Heart, Activity, Plus, Camera, LogOut, X, Droplets, Footprints, Salad, Snowflake, AlertTriangle, Target, CalendarCheck, Zap, Award, KeyRound } from 'lucide-react';
 import Avatar from '../components/Avatar';
 import { Card, Button, SectionLabel, ListRow, Stat, Sheet, IconButton, Wordmark, Chip, ProgressBar, ProgressRing } from '../components/ui';
 import CountUp from '../components/CountUp';
@@ -288,8 +288,12 @@ export function CustomWorkoutModal({ onSave, onClose }) {
 }
 
 // ===== HOME =====
-export default function HomeScreen({ user, onLogout, onChangeAvatar, plan: PLAN, schedule, todayPlan, todayKey, todayName, history, dataLoading, loadError, onRetry, onStart, onPickOther, onStartCardio, onStartMobility, onStartCombined, onLogCustom }) {
+const ACCOUNT_HINT_KEY = 'account_hint_dismissed';
+
+export default function HomeScreen({ user, authEmail, onOpenAccount, onLogout, onChangeAvatar, plan: PLAN, schedule, todayPlan, todayKey, todayName, history, dataLoading, loadError, onRetry, onStart, onPickOther, onStartCardio, onStartMobility, onStartCombined, onLogCustom }) {
   const { release, unseen, markSeen } = useLatestRelease();
+  const [accountHintDismissed, setAccountHintDismissed] = useState(() => !!readJSON(ACCOUNT_HINT_KEY, false));
+  const dismissAccountHint = () => { writeJSON(ACCOUNT_HINT_KEY, true); setAccountHintDismissed(true); };
 
   const isRest = todayKey === 'rest';
   const isCardio = todayKey === 'cardio';
@@ -341,13 +345,33 @@ export default function HomeScreen({ user, onLogout, onChangeAvatar, plan: PLAN,
               <Camera className="w-2.5 h-2.5 text-fg" />
             </div>
           </div>
-          <div>
+          <div className="min-w-0">
             <div className="text-xs text-fg-muted">{todayName}</div>
             <div className="font-semibold text-fg leading-tight">{user.name}</div>
+            {authEmail && <div className="text-[11px] text-fg-faint truncate max-w-[180px]">{authEmail}</div>}
           </div>
         </button>
-        <IconButton icon={LogOut} label="Abmelden" onClick={onLogout} />
+        <div className="flex items-center gap-1">
+          <IconButton icon={KeyRound} label="Konto" onClick={onOpenAccount} className={authEmail ? '' : 'text-accent'} />
+          <IconButton icon={LogOut} label="Abmelden" onClick={onLogout} />
+        </div>
       </div>
+
+      {!authEmail && !accountHintDismissed && (
+        <Card className="mb-5 p-4 border-accent/40 bg-accent/[0.06] animate-fade-up">
+          <div className="flex items-start gap-3">
+            <KeyRound className="w-5 h-5 text-accent shrink-0 mt-0.5" aria-hidden="true" />
+            <div className="flex-1 min-w-0">
+              <div className="font-display text-xl uppercase text-fg leading-none mb-1">Auch am Laptop trainieren?</div>
+              <div className="text-xs text-fg-muted">Leg ein Konto an (E-Mail + Passwort), dann kannst du dich auf jedem Gerät bei diesem Profil einloggen.</div>
+            </div>
+            <button onClick={dismissAccountHint} aria-label="Hinweis ausblenden" className="pressable -mr-2 -mt-2 w-10 h-10 flex items-center justify-center text-fg-muted hover:text-fg">
+              <X className="w-4 h-4" aria-hidden="true" />
+            </button>
+          </div>
+          <Button size="sm" className="w-full mt-3" icon={KeyRound} onClick={onOpenAccount}>Konto anlegen</Button>
+        </Card>
+      )}
 
       {loadError && (
         <Card className="mb-5 p-4 border-danger/40 bg-danger/[0.06] animate-fade-up" role="alert">
