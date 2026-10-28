@@ -1,22 +1,17 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
-  <!--
-    WinterArc app icon: white geometric "ARC" on black. Nothing else.
-    Letters are paths (no font dependency). scripts/generate-icons.mjs renders the PNGs;
-    <g id="art"> is what the maskable variant scales into the safe zone.
-  -->
+  <!-- WinterArc app icon: heavy italic "ARC" wordmark, white on black (ROSE-Bikes-style). Letters are filled paths, no font needed. scripts/generate-icons.mjs renders the PNGs; <g id="art"> is what the maskable variant scales down. -->
   <rect id="bg" width="512" height="512" rx="112" fill="#000000"/>
-
   <g id="art">
-    <!-- monoline letters, stroke 32, centered -->
-    <g fill="none" stroke="#ffffff" stroke-width="32" stroke-linejoin="miter" stroke-miterlimit="6" transform="translate(0 -67)">
-      <!-- A -->
-      <path d="M86 400 L125 262 H135 L174 400"/>
-      <path d="M106 352 H154"/>
-      <!-- R -->
-      <path d="M220 400 V262 H262 A32 32 0 0 1 262 326 H220"/>
-      <path d="M258 326 L296 400"/>
-      <!-- C -->
-      <path d="M424.5 276.4 A61.5 61.5 0 1 0 424.5 370.6"/>
+    <g fill="#ffffff" fill-rule="evenodd" transform="translate(256 256) scale(1.13) skewX(-12) translate(-256 -256) translate(61 186)">
+      <!-- A: flat apex, heavy legs, low crossbar -->
+      <path d="M0 140 L36 0 H82 L118 140 H76 L68 108 H50 L42 140 Z M54 44 L44 84 H74 L64 44 Z"/>
+      <!-- R: stem, squared bowl, straight diagonal leg -->
+      <g transform="translate(136 0)">
+        <path d="M0 0 H76 Q118 0 118 40 Q118 80 76 80 H44 V140 H0 Z M44 32 V48 H72 Q86 48 86 40 Q86 32 72 32 Z"/>
+        <path d="M60 80 H100 L118 140 H78 Z"/>
+      </g>
+      <!-- C: squared, opening right -->
+      <path transform="translate(272 0)" d="M118 0 H56 Q0 0 0 56 V84 Q0 140 56 140 H118 V98 H62 Q44 98 44 80 V60 Q44 42 62 42 H118 Z"/>
     </g>
   </g>
 </svg>

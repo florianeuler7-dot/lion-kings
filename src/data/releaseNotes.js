@@ -16,7 +16,7 @@ const RELEASE_NOTES = [
       "Der Coach redet jetzt locker, direkt und motivierend. It's you versus you",
       "Keine Markdown-Sternchen und langen Striche mehr im Chat",
       "Plan-Zusammenfassung bleibt stehen, bis du selbst auf Ansehen tippst",
-      "Neues App-Icon: ARC, weiß auf schwarz",
+      "Neues App-Icon: ARC, fett und kursiv, weiß auf schwarz",
     ],
     thanks: null,
     motto: "Beste Version von dir. Jeden Tag.",
