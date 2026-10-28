@@ -1,4 +1,4 @@
-// Local dev server for Netlify Functions
+// Local dev server for the Netlify Edge Functions (served under /api/*).
 // API key: uses COACH_API_KEY from the environment / .env, otherwise fetches it from Netlify.
 import http from 'node:http';
 import { execSync } from 'node:child_process';
@@ -30,8 +30,8 @@ process.env.COACH_API_KEY = apiKey;
 // Provide Netlify global so functions don't throw ReferenceError
 globalThis.Netlify = { env: { get: (k) => process.env[k] || '' } };
 
-const { default: coachChatHandler } = await import('../netlify/functions/coach-chat.mjs');
-const { default: parsePlanHandler } = await import('../netlify/functions/parse-plan.mjs');
+const { default: coachChatHandler } = await import('../netlify/edge-functions/coach-chat.js');
+const { default: parsePlanHandler } = await import('../netlify/edge-functions/parse-plan.js');
 
 const HANDLERS = {
   'coach-chat': coachChatHandler,
@@ -44,7 +44,7 @@ const server = http.createServer(async (req, res) => {
   res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
   if (req.method === 'OPTIONS') { res.writeHead(204); res.end(); return; }
 
-  const match = req.url?.match(/^\/.netlify\/functions\/([^/?]+)/);
+  const match = req.url?.match(/^\/api\/([^/?]+)/);
   if (!match) { res.writeHead(404); res.end('Not found'); return; }
 
   const handler = HANDLERS[match[1]];
@@ -80,5 +80,5 @@ const server = http.createServer(async (req, res) => {
 });
 
 server.listen(8889, () => {
-  console.log('✓ Functions server: http://localhost:8889/.netlify/functions/');
+  console.log('✓ Functions server: http://localhost:8889/api/');
 });

@@ -26,7 +26,7 @@ self.addEventListener('fetch', (e) => {
 
   const url = new URL(req.url);
   if (url.origin !== self.location.origin) return;           // never touch third-party / API hosts
-  if (url.pathname.startsWith('/.netlify/')) return;          // serverless functions
+  if (url.pathname.startsWith('/.netlify/') || url.pathname.startsWith('/api/')) return; // functions
 
   // Navigation / HTML → network-first
   if (req.mode === 'navigate' || req.headers.get('accept')?.includes('text/html')) {

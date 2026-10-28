@@ -9,6 +9,17 @@
 
 const RELEASE_NOTES = [
   {
+    version: "2.3.1",
+    date: "2026-10-29",
+    title: "Coach stabil",
+    highlights: [
+      "Lange Coach-Antworten brechen nicht mehr ab (läuft jetzt auf Edge Functions)",
+      "Coach-Chat zoomt auf dem iPhone nicht mehr rein, Eingabefeld bleibt sichtbar",
+    ],
+    thanks: null,
+    motto: "Keine Ausreden. Auch nicht von der Technik.",
+  },
+  {
     version: "2.3.0",
     date: "2026-10-28",
     title: "Neuer Coach-Ton",

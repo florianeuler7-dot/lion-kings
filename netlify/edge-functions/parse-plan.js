@@ -1,8 +1,10 @@
-// Netlify Function: parse-plan
+// Netlify Edge Function: parse-plan  (served at /api/parse-plan)
 // Takes raw text (e.g. pasted plan) and asks Claude to structure it into the app's PLAN format.
 // Streams NDJSON: {type:'start'} … {type:'done', plan} | {type:'error', error}
 
-import { getApiKey, streamClaude, ndjsonResponse, errorResponse, json, CoachError } from './lib/anthropic.mjs';
+import { getApiKey, streamClaude, ndjsonResponse, errorResponse, json, CoachError } from '../shared/anthropic.js';
+
+export const config = { path: '/api/parse-plan' };
 
 const SYSTEM_PROMPT = `Du bist ein Trainings-Plan-Parser für die App "WinterArc 26/27".
 

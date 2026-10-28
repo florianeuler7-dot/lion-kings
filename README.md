@@ -77,10 +77,12 @@ App-Icons neu erzeugen (nach Änderung an `public/icon.svg`): `npm run icons`.
 Die App wird über Netlify gebaut und ausgeliefert (`npm run build` → `dist/`).
 In den Netlify-Einstellungen muss die Umgebungsvariable `COACH_API_KEY` gesetzt sein.
 
-### Coach (Netlify Functions)
+### Coach (Netlify Edge Functions)
 
-Die Functions streamen die Antwort (NDJSON) – so läuft auch eine lange Plan-Antwort nicht
-ins Zeitlimit synchroner Functions. Gemeinsame Logik liegt in `netlify/functions/lib/anthropic.mjs`.
+Der Coach läuft als Edge Functions unter `/api/coach-chat` und `/api/parse-plan`
+(`netlify/edge-functions/`). Sie streamen die Antwort (NDJSON). Normale synchrone Netlify
+Functions brechen nach 10 Sekunden ab, auch beim Streamen – eine Plan-Antwort braucht oft
+länger. Edge Functions halten die Verbindung offen. Gemeinsame Logik: `netlify/shared/anthropic.js`.
 
 | Variable               | Default             | Zweck                                                        |
 | ---------------------- | ------------------- | ------------------------------------------------------------ |

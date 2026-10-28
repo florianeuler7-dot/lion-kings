@@ -243,7 +243,7 @@ export function WorkoutCompleteModal({ data, onClose, history = [], streak = 0 }
             onChange={e => setNote(e.target.value)}
             placeholder="Wie lief's? Gewicht, Gefühl, Besonderheiten…"
             rows={3}
-            className="input-field px-4 py-3 text-sm resize-none"
+            className="input-field px-4 py-3 text-base resize-none"
           />
         </div>
 
