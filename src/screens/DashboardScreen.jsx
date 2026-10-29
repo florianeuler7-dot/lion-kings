@@ -342,7 +342,7 @@ export default function DashboardScreen({ user, optionalDays = new Set() }) {
                         onKeyDown={e => e.key === 'Enter' && handleAddComment(w.id)}
                         placeholder="Kommentar…"
                         aria-label="Kommentar schreiben"
-                        className="input-field px-4 py-2 text-sm rounded-full"
+                        className="input-field px-4 py-2 text-base rounded-full"
                       />
                       <button
                         onClick={() => handleAddComment(w.id)}

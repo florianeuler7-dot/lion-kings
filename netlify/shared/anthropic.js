@@ -1,21 +1,26 @@
-// Shared Anthropic access for the Netlify Functions.
-// Raw fetch (no SDK) keeps the function bundle tiny. Responses are streamed so
-// long answers (full plans) don't run into the function execution limit.
-//
-// Not a function itself: Netlify only registers top-level files or
-// <dir>/<dir>.mjs / <dir>/index.mjs as functions, so lib/anthropic.mjs is just a module.
+// Shared Anthropic access for the Netlify Edge Functions (Deno runtime, web APIs only).
+// Raw fetch (no SDK). Responses are streamed: Edge Functions keep the connection open
+// while the model writes, so long answers (full plans) don't hit the 10 s limit that
+// regular synchronous Netlify Functions have.
 
-const API_URL = process.env.COACH_API_URL || 'https://api.anthropic.com/v1/messages';
+const env = (k) => {
+  try { if (globalThis.Netlify?.env?.get) { const v = globalThis.Netlify.env.get(k); if (v) return v; } } catch { /* not on Netlify */ }
+  try { if (typeof process !== 'undefined' && process.env?.[k]) return process.env[k]; } catch { /* no process (Deno) */ }
+  try { if (globalThis.Deno?.env?.get) return globalThis.Deno.env.get(k) || ''; } catch { /* permission */ }
+  return '';
+};
+
+const API_URL = env('COACH_API_URL') || 'https://api.anthropic.com/v1/messages';
 
 // Override via Netlify env if a model is unavailable for the account.
-export const PRIMARY_MODEL = (process.env.COACH_MODEL || 'claude-sonnet-5-5').trim();
-export const FALLBACK_MODEL = (process.env.COACH_FALLBACK_MODEL || 'claude-sonnet-4-5').trim();
+export const PRIMARY_MODEL = (env('COACH_MODEL') || 'claude-sonnet-5-5').trim();
+export const FALLBACK_MODEL = (env('COACH_FALLBACK_MODEL') || 'claude-sonnet-4-5').trim();
 
 // Older 4.x models reject `output_config.effort`.
 const supportsEffort = (model) => !/-4-\d/.test(model);
 
 export function getApiKey() {
-  return (process.env.COACH_API_KEY || globalThis.Netlify?.env?.get('COACH_API_KEY') || '').trim();
+  return env('COACH_API_KEY').trim();
 }
 
 export class CoachError extends Error {
@@ -76,7 +81,7 @@ async function* readSse(body) {
  * request is rejected (model unavailable, overloaded, rate limited).
  * Throws CoachError when no model answers.
  */
-export async function* streamClaude({ apiKey, system, messages, maxTokens = 2048, stallMs = 20000, totalMs = 90000 }) {
+export async function* streamClaude({ apiKey, system, messages, maxTokens = 2048, stallMs = 25000, totalMs = 120000 }) {
   const models = [...new Set([PRIMARY_MODEL, FALLBACK_MODEL].filter(Boolean))];
   const startedAt = Date.now();
   let lastError = null;
@@ -193,5 +198,5 @@ export async function ndjsonResponse(gen) {
 export function errorResponse(e) {
   if (e instanceof CoachError) return json({ error: e.message, detail: e.detail }, e.status);
   console.error('Function error:', e);
-  return json({ error: e.message || 'Unbekannter Fehler' }, 500);
+  return json({ error: e?.message || 'Unbekannter Fehler' }, 500);
 }

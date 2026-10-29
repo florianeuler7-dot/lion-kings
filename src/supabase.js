@@ -455,7 +455,7 @@ function functionError(status, data, text = '') {
 async function callFunction(name, payload, onDelta) {
   let resp;
   try {
-    resp = await fetch(`/.netlify/functions/${name}`, {
+    resp = await fetch(`/api/${name}`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(payload),

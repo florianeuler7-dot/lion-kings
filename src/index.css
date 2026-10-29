@@ -104,6 +104,7 @@ body {
   font-size: 16px;
   line-height: 1.5;
   color: var(--color-fg);
+  touch-action: manipulation; /* no double-tap zoom in the installed app */
   overscroll-behavior: none;
   -webkit-tap-highlight-color: transparent;
   -webkit-overflow-scrolling: touch;
@@ -215,6 +216,7 @@ input[type="number"] { -moz-appearance: textfield; appearance: textfield; }
 @utility input-field {
   width: 100%;
   min-height: 44px;
+  font-size: 16px; /* iOS Safari zooms the page when focusing inputs smaller than 16px */
   background: var(--color-surface-2);
   border: 1px solid var(--color-line-2);
   border-radius: 1rem;

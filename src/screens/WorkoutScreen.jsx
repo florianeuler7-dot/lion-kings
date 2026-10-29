@@ -357,7 +357,7 @@ export default function WorkoutScreen({ workout, setWorkout, lastWeights, onFini
             aria-label="Notiz zur Übung"
             placeholder="Notiz zur Übung (optional)…"
             rows={2}
-            className="input-field px-4 py-3 text-sm resize-none"
+            className="input-field px-4 py-3 text-base resize-none"
           />
         </div>
 

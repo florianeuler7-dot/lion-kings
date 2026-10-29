@@ -16,18 +16,12 @@ export default defineConfig({
   },
   server: {
     proxy: {
-      '/.netlify/functions': {
-        target: 'http://localhost:8889',
-        changeOrigin: true,
-      },
+      '/api': { target: 'http://localhost:8889', changeOrigin: true },
     },
   },
   preview: {
     proxy: {
-      '/.netlify/functions': {
-        target: 'http://localhost:8889',
-        changeOrigin: true,
-      },
+      '/api': { target: 'http://localhost:8889', changeOrigin: true },
     },
   },
 })

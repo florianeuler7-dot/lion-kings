@@ -53,7 +53,7 @@ function ImportSheet({ onClose, onPlanSaved }) {
             rows={8}
             autoFocus
             disabled={busy}
-            className="input-field px-4 py-3 text-sm mb-3 font-mono"
+            className="input-field px-4 py-3 text-base mb-3 font-mono"
           />
           <ErrorText className="mb-3">{error}</ErrorText>
           <Button className="w-full mb-2" onClick={parse} disabled={busy || text.trim().length < 30}>

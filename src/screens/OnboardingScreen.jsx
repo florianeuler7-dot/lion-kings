@@ -398,7 +398,7 @@ export default function OnboardingScreen({ onComplete, authUser = null }) {
               rows={9}
               autoFocus
               disabled={busy}
-              className="input-field px-4 py-3 text-sm mb-4 font-mono"
+              className="input-field px-4 py-3 text-base mb-4 font-mono"
             />
 
             <ErrorText className="mb-3">{error}</ErrorText>

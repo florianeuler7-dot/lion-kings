@@ -62,7 +62,7 @@ export function ChatInput({ value, onChange, onSend, busy, placeholder = 'Frag d
         rows={1}
         style={{ resize: 'none', overflow: 'hidden', maxHeight: 120 }}
         onInput={e => { e.target.style.height = 'auto'; e.target.style.height = Math.min(120, e.target.scrollHeight) + 'px'; }}
-        className="input-field px-4 py-3 text-sm rounded-3xl"
+        className="input-field px-4 py-3 text-base rounded-3xl min-w-0"
       />
       <button onClick={onSend} disabled={busy || !value.trim()} aria-label="Senden" title="Senden (Strg+Enter)"
         className="pressable w-12 h-12 shrink-0 btn-primary rounded-full flex items-center justify-center disabled:opacity-40 disabled:shadow-none">

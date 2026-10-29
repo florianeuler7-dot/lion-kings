@@ -1,8 +1,10 @@
-// Netlify Function: coach-chat
+// Netlify Edge Function: coach-chat  (served at /api/coach-chat)
 // Streams a Claude response (NDJSON) in the context of the WinterArc coaching system.
 // Lines: {type:'start'} → {type:'delta', text} … → {type:'done', reply, plan} | {type:'error', error, detail}
 
-import { getApiKey, streamClaude, ndjsonResponse, errorResponse, json } from './lib/anthropic.mjs';
+import { getApiKey, streamClaude, ndjsonResponse, errorResponse, json } from '../shared/anthropic.js';
+
+export const config = { path: '/api/coach-chat' };
 
 const PLAN_KEYS = ['push', 'pull', 'legs', 'aesthetic', 'cardio', 'rest'];
 
